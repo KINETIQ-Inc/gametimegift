@@ -1,4 +1,4 @@
 {
-  "buildCommand": "cd apps/storefront && pnpm build",
-  "outputDirectory": "apps/storefront/dist"
+  "buildCommand": "pnpm build",
+  "outputDirectory": "dist"
 }
