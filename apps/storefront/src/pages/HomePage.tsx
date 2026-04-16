@@ -23,6 +23,7 @@ import {
   useEffect,
   useState,
 } from 'react'
+import { Link } from 'react-router-dom'
 import { Badge, Button, Heading } from '@gtg/ui'
 import { type ProductListItem } from '@gtg/api'
 import { formatUsdCents } from '@gtg/utils'
@@ -31,6 +32,7 @@ import { useStorefront } from '../contexts/StorefrontContext'
 import { ConsultantAttributionBanner } from '../components/referral/ConsultantAttributionBanner'
 import { MegaNav } from '../components/mega-nav/MegaNav'
 import { SiteNav } from '../components/nav/SiteNav'
+import { ProductGrid } from '../components/ProductGrid'
 import {
   filterProducts,
   getProductPath,
@@ -201,6 +203,7 @@ export function HomePage() {
   const {
     products,
     loading,
+    error,
     licenseFilter,
     sportFilter,
     setLicenseFilter,
@@ -289,9 +292,9 @@ export function HomePage() {
                       <a href="#sport-selector" className="gtg-btn gtg-btn--gold gtg-btn--lg hero-primary-cta">
                         Shop by Team
                       </a>
-                      <a href="/authenticity" className="hero-secondary-cta">
+                      <Link to="/authenticity" className="hero-secondary-cta">
                         Authenticity
-                      </a>
+                      </Link>
                     </div>
 
                     <div className="hero-chip-row" role="list" aria-label="Shopping highlights">
@@ -349,6 +352,18 @@ export function HomePage() {
           </section>
 
           <div className="storefront-shell">
+            {error ? (
+              <section className="catalog-error-banner" role="alert" aria-live="polite">
+                <p className="catalog-error-banner__eyebrow">Catalog Error</p>
+                <p className="catalog-error-banner__message">
+                  We couldn&apos;t load the storefront catalog right now.
+                </p>
+                <p className="catalog-error-banner__detail">{error.message}</p>
+              </section>
+            ) : null}
+          </div>
+
+          <div className="storefront-shell">
             {/* ── 6. Brand positioning ── */}
             <section className="gift-positioning" aria-label="About Game Time Gift">
               <div className="gift-positioning-inner">
@@ -378,6 +393,10 @@ export function HomePage() {
               </div>
             </section>
           </div>
+
+        <div className="home-band-inner">
+          <ProductGrid />
+        </div>
 
         {/* ── 7. Sport selector ── */}
         <div className="home-band-inner">

@@ -9,6 +9,7 @@
  */
 
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useStorefront } from '../../contexts/StorefrontContext'
 import gameTimeGiftLogo from '../../assets/game_time_gift.png'
 
@@ -37,10 +38,10 @@ export function SiteNav({ mode = 'light' }: SiteNavProps) {
       aria-label="Main navigation"
     >
       <a href="#main-content" className="skip-link">Skip to content</a>
-      <a href="/" className="site-nav__brand" aria-label="Game Time Gift — home">
+      <Link to="/" className="site-nav__brand" aria-label="Game Time Gift — home">
         <img src={gameTimeGiftLogo} alt="" className="site-nav__logo" />
         <span className="site-nav__brand-name">Game Time Gift</span>
-      </a>
+      </Link>
 
       <button
         type="button"
@@ -56,14 +57,14 @@ export function SiteNav({ mode = 'light' }: SiteNavProps) {
       </button>
 
       <ul className="site-nav__links" id="site-nav-links" role="list">
-        <li><a href="/shop" className="site-nav__link" onClick={() => setMenuOpen(false)}>Shop</a></li>
-        <li><a href="/authenticity" className="site-nav__link" onClick={() => setMenuOpen(false)}>Authenticity</a></li>
-        <li><a href="/consultant" className="site-nav__link" onClick={() => setMenuOpen(false)}>Consultants</a></li>
+        <li><Link to="/shop" className="site-nav__link" onClick={() => setMenuOpen(false)}>Shop</Link></li>
+        <li><Link to="/authenticity" className="site-nav__link" onClick={() => setMenuOpen(false)}>Authenticity</Link></li>
+        <li><Link to="/consultant" className="site-nav__link" onClick={() => setMenuOpen(false)}>Consultants</Link></li>
       </ul>
 
       <div className="site-nav__actions">
-        <a
-          href={checkoutEnabled ? '/checkout' : undefined}
+        <Link
+          to="/checkout"
           className="site-nav__cart"
           aria-label={`Cart — ${cartCount} item${cartCount === 1 ? '' : 's'}`}
           aria-disabled={!checkoutEnabled}
@@ -77,7 +78,7 @@ export function SiteNav({ mode = 'light' }: SiteNavProps) {
           {cartCount > 0 ? (
             <span className="site-nav__cart-count">{cartCount}</span>
           ) : null}
-        </a>
+        </Link>
       </div>
     </nav>
   )
