@@ -1,0 +1,131 @@
+/* ─────────────────────────────────────────────────────────────
+   Game Time Gift — Web Fonts  (fonts.css)
+
+   IMPORT ORDER: this file must be imported BEFORE tokens.css
+   and components.css in every app entry point.
+
+   TYPEFACES USED
+   ──────────────
+   Playfair Display  — Display headings, emotional moments,
+                       hero copy, product names in large contexts.
+                       Serif warmth signals premium, gift-giving.
+                       DO NOT use for body copy or UI labels.
+
+   Inter             — All UI: buttons, labels, badges, nav,
+                       body copy, data, pricing, forms.
+                       The workhorse. Always legible at small sizes.
+                       DO NOT use for hero/display headings.
+
+   FALLBACK STACKS (system fonts — zero network cost)
+   ────────────────────────────────────────────────────
+   Serif fallback : Georgia, 'Times New Roman', serif
+   Sans fallback  : 'Helvetica Neue', Arial, sans-serif
+
+   WEIGHT REFERENCE
+   ─────────────────
+   Playfair Display
+     400  — body-size display (blockquotes, pull quotes)
+     500  — default display headings (h3–h4 in display mode)
+     600  — medium emphasis display
+     700  — primary display heading weight (h1, h2)
+     800  — maximum display weight (hero, giant CTAs)
+     italic variants: 400i, 700i (for decorative pull-quotes)
+
+   Inter
+     300  — light (de-emphasised labels, table headers)
+     400  — default body text
+     500  — medium (nav links, secondary labels)
+     600  — semibold (button text sm, input labels)
+     700  — bold (default button weight, card titles)
+     800  — extrabold (price display, strong CTAs)
+
+   FONT SIZE — TOKEN MAP
+   ──────────────────────
+   --text-2xs  (10px) → legal, micro labels
+   --text-xs   (12px) → badges, captions, helper text
+   --text-sm   (14px) → secondary body, form labels, nav
+   --text-base (16px) → primary body copy
+   --text-lg   (18px) → lead paragraph, card price
+   --text-xl   (20px) → large UI, subheading
+   --text-2xl  (24px) → h4 / section subheads
+   --text-3xl  (30px) → h3
+   --text-4xl  (36px) → h2
+   --text-5xl  (48px) → h1 mobile
+   --text-6xl  (60px) → h1 desktop
+   --text-7xl  (72px) → hero display
+   --text-8xl  (96px) → oversized hero
+
+   USAGE RULES
+   ────────────
+   1. Hero headings (h1, h2):  font-display + weight 700–800
+   2. Section headings (h3):   font-display + weight 600–700
+   3. Card / UI headings (h4): font-body + weight 700
+   4. Body copy:               font-body + weight 400
+   5. Buttons:                 font-body + weight 700
+   6. Badges / eyebrows:       font-body + weight 700 + tracking-wider
+   7. Price / numeric display: font-body + weight 800 + tabular-nums
+   8. Navigation links:        font-body + weight 500–600
+   9. Legal / footnote copy:   font-body + weight 400 + text-xs
+   10. Italic emphasis:        font-display + italic (decorative only,
+                               never in UI controls or data)
+
+   ANTI-PATTERNS (never do these)
+   ────────────────────────────────
+   ✗  Playfair Display in buttons, badges, nav, forms, or tables
+   ✗  Weights below 400 for body copy (poor mobile rendering)
+   ✗  Mixing font-display and font-body within a single component label
+   ✗  Font size below --text-xs (10px) anywhere
+   ✗  Italic in data-dense UI (tables, forms, dashboards)
+
+   ───────────────────────────────────────────────────────────── */
+
+/* ── Google Fonts CDN ──────────────────────────────────────── */
+/* Loads both families in a single round-trip. display=swap    */
+/* prevents invisible text during font load (FOIT).            */
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,700&family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+/* ── Base Render Optimizations ─────────────────────────────── */
+/* Applied globally. Components inherit from here.             */
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'kern' 1, 'liga' 1;
+}
+
+/* Tabular numerics for price / data columns */
+.font-tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* ── System Font Fallback ────────────────────────────────────
+   When Google Fonts are blocked (offline / privacy settings),
+   these local @font-face declarations ensure Inter-like
+   rendering. Priority: local Inter → system sans-serif.       */
+
+@font-face {
+  font-family: 'Inter';
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  src: local('Inter'), local('Inter-Regular');
+}
+
+@font-face {
+  font-family: 'Playfair Display';
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: swap;
+  src: local('Playfair Display'), local('PlayfairDisplay-Regular');
+}
+
+@font-face {
+  font-family: 'Playfair Display';
+  font-weight: 400 900;
+  font-style: italic;
+  font-display: swap;
+  src: local('Playfair Display Italic'), local('PlayfairDisplay-Italic');
+}

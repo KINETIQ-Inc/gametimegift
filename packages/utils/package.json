@@ -1,0 +1,20 @@
+{
+  "name": "@gtg/utils",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "type-check": "tsc --noEmit",
+    "build": "echo \"@gtg/utils: no build step required\""
+  },
+  "dependencies": {
+    "@gtg/types": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.3"
+  }
+}

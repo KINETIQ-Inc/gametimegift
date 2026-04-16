@@ -1,0 +1,43 @@
+{
+  "name": "gametimegift",
+  "private": true,
+  "version": "1.0.0",
+  "packageManager": "pnpm@10.30.3",
+  "engines": {
+    "node": ">=20.0.0 <21.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "supabase"
+    ]
+  },
+  "scripts": {
+    "dev": "pnpm --filter './apps/**' --parallel --stream dev",
+    "build": "pnpm run build:packages && pnpm --filter './apps/**' --if-present build",
+    "build:packages": "pnpm --filter './packages/**' --if-present build",
+    "type-check": "pnpm -r --parallel --if-present type-check",
+    "lint": "pnpm -r --if-present lint",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:smoke": "pnpm --filter @gtg/storefront test:smoke",
+    "test:critical-gate": "node .ci/check-critical-test-coverage.mjs",
+    "config:validate": "node .ci/validate-config-contract.mjs",
+    "surface:generate": "node .ci/generate-edge-function-surface.mjs",
+    "predeploy:check": "pnpm config:validate && pnpm test:ci",
+    "test:ci": "pnpm type-check && pnpm lint && pnpm test && pnpm test:smoke && pnpm test:critical-gate",
+    "db:start": "pnpm --filter @gtg/supabase db:start",
+    "db:reset": "pnpm --filter @gtg/supabase db:reset",
+    "db:stop": "pnpm --filter @gtg/supabase db:stop",
+    "gen:types": "pnpm --filter @gtg/supabase gen:types",
+    "gen:types:remote": "pnpm --filter @gtg/supabase gen:types:remote",
+    "clean": "pnpm -r exec -- rm -rf dist node_modules/.tmp && find . -maxdepth 5 -name '*.tsbuildinfo' -not -path '*/node_modules/*' -delete"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "jsdom": "^26.1.0",
+    "vitest": "^3.2.4"
+  }
+}

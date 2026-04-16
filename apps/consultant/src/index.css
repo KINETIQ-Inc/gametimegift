@@ -1,0 +1,898 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Tokens: @gtg/ui/tokens.css  |  Fonts: @gtg/ui/fonts.css */
+:root {
+  /* Portal-specific palette — consultant app only */
+  --portal-navy: var(--color-navy-800);
+  --portal-blue: var(--color-navy-600);
+  --portal-cyan: #7fd6ff;
+  --portal-gold: var(--color-gold-400);
+  --portal-green: var(--color-success);
+  --portal-green-light: var(--color-success-light);
+  --portal-ink: var(--color-ink-700);
+  --portal-muted: var(--color-ink-500);
+  --portal-line: var(--color-surface-3);
+  --portal-card: rgba(255, 255, 255, 0.94);
+  --portal-soft: #eef4ff;
+  --portal-success: var(--color-success-light);
+  --portal-danger: var(--color-error-light);
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  color: var(--portal-ink);
+  background:
+    radial-gradient(circle at 10% 20%, rgba(127, 214, 255, 0.24), transparent 28%),
+    radial-gradient(circle at 90% 10%, rgba(209, 167, 79, 0.18), transparent 24%),
+    linear-gradient(180deg, #f3f7ff 0%, #eef3fb 100%);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.consultant-portal {
+  width: min(1320px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 1.5rem 0 3rem;
+}
+
+.consultant-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  gap: 1rem;
+  padding: 1.5rem;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 82% 22%, rgba(127, 214, 255, 0.24), transparent 28%),
+    linear-gradient(135deg, #0b1c42 0%, #1c3f8e 100%);
+  color: #fff;
+  box-shadow: 0 28px 60px rgba(12, 29, 66, 0.24);
+}
+
+.hero-copy .gtg-heading {
+  margin: 0.45rem 0 0.7rem;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  line-height: 1.08;
+  letter-spacing: -0.01em;
+}
+
+.subtitle {
+  margin: 0;
+  max-width: 62ch;
+  color: rgba(235, 243, 255, 0.84);
+  line-height: 1.7;
+}
+
+.eyebrow {
+  margin: 0;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--portal-gold);
+  font-size: 0.78rem;
+}
+
+.hero-metrics {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.hero-metric-card,
+.panel,
+.stats article,
+.channel-card,
+.detail-card,
+.empty-state,
+.status-pill {
+  border: 1px solid rgba(17, 42, 96, 0.08);
+  background: var(--portal-card);
+  box-shadow: 0 22px 48px rgba(17, 42, 96, 0.08);
+}
+
+.hero-metric-card {
+  border-radius: 22px;
+  padding: 1rem 1.1rem;
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: none;
+}
+
+.hero-metric-card span,
+.stats article span,
+.channel-card span,
+.record-values span:first-child {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.hero-metric-card strong,
+.stats article strong {
+  display: block;
+  margin-top: 0.4rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  letter-spacing: -0.02em;
+}
+
+/* Commission-positive values: make earnings feel tangible */
+.stats article:nth-child(2) strong,
+.stats article:nth-child(5) strong {
+  color: var(--portal-green);
+}
+
+.hero-metric-card p,
+.stats article p,
+.channel-card p,
+.detail-card-head p,
+.copy-feedback,
+.muted,
+.result-card p {
+  margin: 0.45rem 0 0;
+  line-height: 1.55;
+}
+
+.portal-grid {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.panel {
+  border-radius: 24px;
+  padding: 1.35rem;
+}
+
+.panel-head h2,
+.result-card h3,
+.detail-card h3 {
+  margin: 0.3rem 0 0.4rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.3rem, 2.5vw, 1.8rem);
+  letter-spacing: -0.01em;
+}
+
+.panel-head p {
+  margin: 0;
+  color: var(--portal-muted);
+  line-height: 1.65;
+}
+
+.referral-form,
+.calculator-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin-top: 1rem;
+}
+
+.referral-form label,
+.calculator-grid label {
+  display: grid;
+  gap: 0.45rem;
+  font-weight: 700;
+  color: var(--portal-ink);
+}
+
+.referral-form label:first-child {
+  grid-column: 1 / span 2;
+}
+
+input {
+  width: 100%;
+  min-height: 50px;
+  border-radius: 16px;
+  border: 1px solid #c9d7ef;
+  padding: 0.8rem 0.95rem;
+  font: inherit;
+  color: var(--portal-ink);
+  background: #fcfdff;
+}
+
+input:focus {
+  outline: 2px solid rgba(36, 87, 197, 0.22);
+  outline-offset: 1px;
+}
+
+
+.result-card {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 20px;
+  background: linear-gradient(180deg, #f9fbff 0%, #eff5ff 100%);
+  border: 1px solid var(--portal-line);
+}
+
+.result-card-head,
+.period-form,
+.record-row,
+.record-values,
+.detail-grid {
+  display: flex;
+  gap: 0.8rem;
+}
+
+.result-card-head,
+.period-form,
+.record-row {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.url {
+  word-break: break-all;
+  color: #1848a0;
+  font-weight: 700;
+}
+
+.mini-stats,
+.channel-grid,
+.stats,
+.detail-grid,
+.record-list {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.mini-stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.mini-stats p {
+  padding: 0.8rem 0.9rem;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid var(--portal-line);
+}
+
+.channel-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 1rem;
+}
+
+.channel-card {
+  padding: 0.95rem;
+  border-radius: 18px;
+  background: #fff;
+}
+
+.channel-card p {
+  font-size: 0.88rem;
+  color: var(--portal-muted);
+  word-break: break-all;
+}
+
+.copy-feedback {
+  color: var(--portal-blue);
+  font-weight: 700;
+}
+
+.empty-state {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 18px;
+}
+
+.period-form {
+  margin-top: 1rem;
+  align-items: end;
+  flex-wrap: wrap;
+}
+
+.period-form label {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 180px;
+  font-weight: 700;
+}
+
+.status-pill {
+  min-height: 50px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.8rem 1rem;
+  border-radius: 999px;
+  background: var(--portal-soft);
+  color: var(--portal-blue);
+  font-weight: 700;
+}
+
+.stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 1rem;
+}
+
+.stats article {
+  padding: 1rem;
+  border-radius: 18px;
+}
+
+.detail-grid {
+  margin-top: 1rem;
+  flex-direction: column;
+}
+
+.detail-card {
+  border-radius: 20px;
+  padding: 1rem;
+}
+
+.record-list {
+  margin-top: 1rem;
+}
+
+.record-row {
+  padding: 0.9rem 0;
+  border-top: 1px solid var(--portal-line);
+}
+
+.record-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.record-row strong {
+  display: block;
+}
+
+.record-row p {
+  margin: 0.25rem 0 0;
+  color: var(--portal-muted);
+}
+
+.record-values {
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+  min-width: 200px;
+}
+
+.muted {
+  color: var(--portal-muted);
+}
+
+.calculator-panel {
+  background:
+    radial-gradient(circle at 90% 10%, rgba(209, 167, 79, 0.12), transparent 18%),
+    linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.projection-stats {
+  margin-top: 1rem;
+}
+
+@media (max-width: 1040px) {
+  .consultant-hero,
+  .channel-grid,
+  .stats,
+  .mini-stats,
+  .referral-form,
+  .calculator-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .referral-form label:first-child {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 760px) {
+  .consultant-portal {
+    width: min(100% - 1rem, 1320px);
+    padding-top: 0.75rem;
+  }
+
+  .consultant-hero,
+  .panel {
+    padding: 1rem;
+    border-radius: 20px;
+  }
+
+  .result-card-head,
+  .period-form,
+  .record-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .record-values {
+    min-width: 0;
+    align-items: flex-start;
+    text-align: left;
+  }
+}
+
+/* ─── Dashboard Loading State ────────────────────────────────────────────────── */
+
+.dashboard-loading-state {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dashboard-skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.dashboard-skeleton-card {
+  background: var(--surface, #f8f9fa);
+  border: 1px solid var(--line, #d1d8e0);
+  border-radius: 10px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.skeleton-line {
+  height: 12px;
+  border-radius: 4px;
+  background: var(--line, #d1d8e0);
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+  width: 40%;
+}
+
+.skeleton-line.medium {
+  width: 60%;
+}
+
+.skeleton-line.wide {
+  height: 20px;
+  width: 80%;
+}
+
+.dashboard-loading-label {
+  font-size: 0.875rem;
+  color: var(--ink-muted, #4a5568);
+  text-align: center;
+  margin: 0;
+}
+
+/* ─── Dashboard Empty State ──────────────────────────────────────────────────── */
+
+.dashboard-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 48px 24px;
+  gap: 12px;
+}
+
+.dashboard-empty-icon {
+  font-size: 2.5rem;
+  line-height: 1;
+}
+
+.dashboard-empty-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--ink, #1a2033);
+  margin: 0;
+}
+
+.dashboard-empty-body {
+  font-size: 0.9375rem;
+  color: var(--ink-muted, #4a5568);
+  max-width: 380px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.dashboard-empty-hint {
+  font-size: 0.8125rem;
+  color: var(--ink-muted, #4a5568);
+  opacity: 0.7;
+  margin: 0;
+}
+
+@media (max-width: 680px) {
+  .dashboard-skeleton-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ── Router layout ─────────────────────────────────────────── */
+
+.portal-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.portal-nav {
+  width: 220px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: rgba(3, 18, 54, 0.94);
+  border-right: 1px solid var(--portal-line);
+  padding: 1.5rem 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.portal-nav__brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--portal-line);
+  margin-bottom: 1rem;
+}
+
+.portal-nav__brand-mark {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--portal-gold);
+  letter-spacing: 0.04em;
+}
+
+.portal-nav__brand-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--portal-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.portal-nav__links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.portal-nav__link {
+  display: block;
+  padding: 0.6rem 1.25rem;
+  color: var(--portal-muted);
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-radius: 0 0.5rem 0.5rem 0;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.portal-nav__link:hover {
+  background: rgba(127, 214, 255, 0.07);
+  color: var(--portal-ink);
+}
+
+.portal-nav__link--active {
+  background: rgba(127, 214, 255, 0.12);
+  color: var(--portal-cyan);
+  font-weight: 700;
+}
+
+.portal-nav__footer {
+  padding: 1rem 1.25rem 0;
+  border-top: 1px solid var(--portal-line);
+}
+
+.portal-content {
+  flex: 1;
+  min-width: 0;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* ── Login page ─────────────────────────────────────────────── */
+
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.login-card {
+  width: min(420px, 100%);
+  background: var(--portal-card);
+  border: 1px solid var(--portal-line);
+  border-radius: 1.5rem;
+  padding: 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  box-shadow: var(--shadow-xl);
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.login-brand-mark {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--portal-navy);
+  letter-spacing: 0.04em;
+}
+
+.login-brand-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--portal-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.login-sub {
+  margin: -0.5rem 0 0;
+  font-size: 0.875rem;
+  color: var(--portal-muted);
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.login-form label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--portal-ink);
+  letter-spacing: 0.03em;
+}
+
+.login-form input {
+  display: block;
+  width: 100%;
+  margin-top: 0.3rem;
+  padding: 0.6rem 0.75rem;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  box-sizing: border-box;
+}
+
+.login-form input:focus {
+  outline: none;
+  border-color: var(--color-border-focus);
+  box-shadow: var(--focus-ring);
+}
+
+.login-submit { width: 100%; margin-top: 0.5rem; }
+
+.login-loading {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-loading-spinner {
+  width: 2rem;
+  height: 2rem;
+  border: 3px solid var(--portal-line);
+  border-top-color: var(--portal-blue);
+  border-radius: 50%;
+  animation: gtg-spin 0.7s linear infinite;
+}
+
+/* ── Dashboard page ─────────────────────────────────────────── */
+
+.dashboard-page,
+.earnings-page,
+.referral-tools-page,
+.profile-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.dashboard-quick-links {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.dashboard-quick-link {
+  display: block;
+  padding: 1.25rem 1.5rem;
+  background: var(--portal-card);
+  border: 1px solid var(--portal-line);
+  border-radius: 1rem;
+  text-decoration: none;
+  color: inherit;
+  transition: box-shadow 200ms, transform 200ms;
+}
+
+.dashboard-quick-link:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.dashboard-quick-link p {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  color: var(--portal-muted);
+}
+
+.dashboard-cta-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.detail-card-more {
+  display: block;
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+  color: var(--portal-blue);
+  text-decoration: none;
+}
+
+/* ── Profile page ───────────────────────────────────────────── */
+
+.profile-readonly .admin-detail-dl dt,
+.profile-dl dt {
+  color: var(--portal-muted);
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.profile-dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.5rem 1rem;
+}
+
+.profile-dl dd { margin: 0; color: var(--portal-ink); }
+
+.profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.profile-form label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--portal-ink);
+}
+
+.profile-form input {
+  display: block;
+  width: 100%;
+  margin-top: 0.3rem;
+  padding: 0.6rem 0.75rem;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  box-sizing: border-box;
+}
+
+.profile-form input:focus {
+  outline: none;
+  border-color: var(--color-border-focus);
+  box-shadow: var(--focus-ring);
+}
+
+.profile-form-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+/* ═══════════════════════════════════════════════════════
+   RESPONSIVE — Consultant portal
+═══════════════════════════════════════════════════════ */
+
+/* Prevent any element from causing horizontal overflow */
+html, body {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+/* Tablet and below — collapse sticky sidebar into top nav bar */
+@media (max-width: 900px) {
+  .portal-layout {
+    flex-direction: column;
+  }
+
+  .portal-nav {
+    width: 100%;
+    height: auto;
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+    padding: 0.75rem 1rem 0.5rem;
+    border-right: none;
+    border-bottom: 1px solid var(--portal-line);
+    gap: 0;
+  }
+
+  .portal-nav__brand {
+    padding: 0 1.25rem 0.75rem 0;
+    border-bottom: none;
+    margin-bottom: 0;
+    align-self: center;
+  }
+
+  .portal-nav__links {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.2rem;
+    padding: 0.5rem 0 0;
+    width: 100%;
+  }
+
+  .portal-nav__link {
+    border-radius: 999px;
+    padding: 0.35rem 0.7rem;
+    font-size: 0.78rem;
+  }
+
+  .portal-nav__footer {
+    width: 100%;
+    padding: 0.5rem 0 0;
+    margin-top: 0.25rem;
+    border-top: 1px solid var(--portal-line);
+  }
+
+  .portal-content {
+    padding: 1.25rem;
+    gap: 1rem;
+  }
+
+  .consultant-portal {
+    width: 100%;
+    padding: 1rem 0 2rem;
+  }
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+  .portal-content {
+    padding: 0.75rem;
+  }
+
+  .panel {
+    padding: 1rem;
+    border-radius: 18px;
+  }
+
+  .profile-form-actions {
+    flex-direction: column;
+  }
+
+  .profile-form-actions .gtg-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .detail-card {
+    padding: 0.85rem;
+  }
+}

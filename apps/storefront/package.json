@@ -1,0 +1,39 @@
+{
+  "name": "@gtg/storefront",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "type-check": "tsc -b",
+    "test:smoke:anchors": "node ./scripts/ui-smoke.mjs",
+    "test:smoke:mega-nav": "pnpm exec vitest run __tests__/mega-nav-ui-smoke.test.tsx",
+    "test:smoke": "pnpm test:smoke:anchors && pnpm test:smoke:mega-nav"
+  },
+  "dependencies": {
+    "@gtg/api": "workspace:*",
+    "@gtg/config": "workspace:*",
+    "@gtg/ui": "workspace:*",
+    "@gtg/utils": "workspace:^",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^7.14.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.48.0",
+    "vite": "^7.3.1"
+  }
+}

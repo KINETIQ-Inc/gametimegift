@@ -1,0 +1,22 @@
+{
+  "name": "@gtg/api",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "type-check": "tsc --noEmit",
+    "build": "echo \"@gtg/api: no build step required\""
+  },
+  "dependencies": {
+    "@gtg/domain": "workspace:*",
+    "@gtg/supabase": "workspace:*",
+    "@gtg/types": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.3"
+  }
+}

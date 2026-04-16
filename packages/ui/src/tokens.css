@@ -1,0 +1,386 @@
+/* ─────────────────────────────────────────────────────────────
+   Game Time Gift — Design Tokens  (tokens.css)
+   Single source of truth for every visual decision.
+
+   IMPORT ORDER (per app entry point):
+     1. fonts.css
+     2. tokens.css
+     3. components.css
+
+   NEVER hard-code raw values in component CSS.
+   All values must reference a token defined here.
+   ───────────────────────────────────────────────────────────── */
+
+:root {
+
+  /* ═══════════════════════════════════════════════════════════
+     COLOR — BASE PALETTE
+     Raw primitives. Use semantic aliases in components.
+     ═══════════════════════════════════════════════════════════ */
+
+  /* Absolute white/off-white surfaces */
+  --color-white:      #ffffff;
+  --color-off-white:  #fafafa;
+
+  /* Surface ramp — background layers, cards, panels */
+  --color-surface-0:  #ffffff;   /* page canvas */
+  --color-surface-1:  #f8f9fa;   /* card / panel */
+  --color-surface-2:  #f1f3f7;   /* inset / well */
+  --color-surface-3:  #e8ecf4;   /* border-adjacent fill */
+
+  /* ── Ink (neutral text ramp) ── */
+  --color-ink-950:  #0a0d14;   /* near-black, hero headings */
+  --color-ink-900:  #0f1117;   /* default body text */
+  --color-ink-700:  #1a2033;   /* secondary text */
+  --color-ink-500:  #4a5568;   /* muted / supporting text */
+  --color-ink-300:  #8896a8;   /* placeholder / disabled text */
+  --color-ink-100:  #d1d8e0;   /* dividers / subtle borders */
+
+  /* ── Primary — Brand Navy ── */
+  --color-primary-950:  #001033;
+  --color-primary-900:  #031b52;
+  --color-primary-800:  #0c2d6b;
+  --color-primary-700:  #0f3a80;   /* default interactive primary */
+  --color-primary-600:  #1a4db3;   /* hover state */
+  --color-primary-400:  #4d7fdb;   /* light / on-dark text */
+  --color-primary-100:  #dce9ff;   /* tinted surface */
+
+  /* Legacy aliases — kept for backward compat, map to primary */
+  --color-navy-950: var(--color-primary-950);
+  --color-navy-900: var(--color-primary-900);
+  --color-navy-800: var(--color-primary-800);
+  --color-navy-700: var(--color-primary-700);
+  --color-navy-600: var(--color-primary-600);
+
+  /* ── Secondary / Accent — Brand Gold ── */
+  --color-accent-700:  #92600a;    /* dark gold, AA on white */
+  --color-accent-600:  #b8860b;    /* default accent text */
+  --color-accent-500:  #c59a4c;    /* default accent fill */
+  --color-accent-400:  #d7b061;    /* light accent */
+  --color-accent-300:  #e8c97a;    /* hover glow */
+  --color-accent-200:  #f5e4b0;    /* tinted surface */
+  --color-accent-100:  #fdf6e3;    /* lightest tint */
+
+  /* Legacy aliases — map to accent */
+  --color-gold-700: var(--color-accent-700);
+  --color-gold-600: var(--color-accent-600);
+  --color-gold-500: var(--color-accent-500);
+  --color-gold-400: var(--color-accent-400);
+  --color-gold-300: var(--color-accent-300);
+  --color-gold-200: var(--color-accent-200);
+  --color-gold-100: var(--color-accent-100);
+
+  /* ── Neutral — grey ramp (non-branded) ── */
+  --color-neutral-900:  #111827;
+  --color-neutral-700:  #374151;
+  --color-neutral-500:  #6b7280;
+  --color-neutral-300:  #9ca3af;
+  --color-neutral-100:  #e5e7eb;
+  --color-neutral-50:   #f9fafb;
+
+  /* ── Semantic — Success ── */
+  --color-success-700:  #15803d;
+  --color-success:      #16a34a;   /* default */
+  --color-success-light:#dcfce7;   /* tinted surface */
+  --color-success-border:rgba(22, 163, 74, 0.25);
+
+  /* ── Semantic — Error ── */
+  --color-error-700:  #b91c1c;
+  --color-error:      #dc2626;    /* default */
+  --color-error-light:#fee2e2;    /* tinted surface */
+  --color-error-border:rgba(220, 38, 38, 0.25);
+
+  /* ── Semantic — Warning ── */
+  --color-warning-700: #b45309;
+  --color-warning:     #d97706;   /* default */
+  --color-warning-light:#fef3c7;  /* tinted surface */
+  --color-warning-border:rgba(217, 119, 6, 0.25);
+
+  /* ── Semantic — Info ── */
+  --color-info:        #2563eb;
+  --color-info-light:  #dbeafe;
+  --color-info-border: rgba(37, 99, 235, 0.25);
+
+
+  /* ═══════════════════════════════════════════════════════════
+     TYPOGRAPHY
+     ═══════════════════════════════════════════════════════════ */
+
+  /* ── Font Families ── */
+  --font-display: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --font-body:    'Inter', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono:    'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+
+  /* ── Type Scale (rem, 16px base) ── */
+  --text-2xs:   0.625rem;   /*  10px — micro labels only */
+  --text-xs:    0.75rem;    /*  12px — captions, legal, badges */
+  --text-sm:    0.875rem;   /*  14px — secondary body, UI labels */
+  --text-base:  1rem;       /*  16px — primary body copy */
+  --text-lg:    1.125rem;   /*  18px — lead paragraph, card price */
+  --text-xl:    1.25rem;    /*  20px — large UI text */
+  --text-2xl:   1.5rem;     /*  24px — h4 / section subheads */
+  --text-3xl:   1.875rem;   /*  30px — h3 */
+  --text-4xl:   2.25rem;    /*  36px — h2 */
+  --text-5xl:   3rem;       /*  48px — h1 mobile */
+  --text-6xl:   3.75rem;    /*  60px — h1 desktop */
+  --text-7xl:   4.5rem;     /*  72px — hero display */
+  --text-8xl:   6rem;       /*  96px — oversized hero */
+
+  /* ── Font Weights ── */
+  --font-weight-light:     300;
+  --font-weight-normal:    400;
+  --font-weight-medium:    500;
+  --font-weight-semibold:  600;
+  --font-weight-bold:      700;
+  --font-weight-extrabold: 800;
+  --font-weight-black:     900;
+
+  /* ── Line Heights ── */
+  --leading-none:    1;       /* display headings, tightly set */
+  --leading-tight:   1.15;   /* large headings */
+  --leading-snug:    1.35;   /* card titles, medium headings */
+  --leading-normal:  1.5;    /* body copy default */
+  --leading-relaxed: 1.625;  /* long-form prose */
+  --leading-loose:   2;      /* highly spaced UI */
+
+  /* ── Letter Spacing ── */
+  --tracking-tighter: -0.03em;   /* large display headings */
+  --tracking-tight:   -0.015em;  /* medium headings */
+  --tracking-normal:   0em;      /* body copy */
+  --tracking-wide:     0.04em;   /* button labels, UI text */
+  --tracking-wider:    0.06em;   /* badges, eyebrows */
+  --tracking-widest:   0.14em;   /* all-caps labels */
+
+
+  /* ═══════════════════════════════════════════════════════════
+     SPACING
+     4px base unit. All values are multiples of 4px.
+     ═══════════════════════════════════════════════════════════ */
+
+  --space-px:   1px;          /*  1px  — hairline borders */
+  --space-0:    0;
+  --space-0-5:  0.125rem;     /*  2px  — micro gap */
+  --space-1:    0.25rem;      /*  4px  — tight gap */
+  --space-1-5:  0.375rem;     /*  6px  — badge padding */
+  --space-2:    0.5rem;       /*  8px  — small gap */
+  --space-3:    0.75rem;      /* 12px  — component inner padding */
+  --space-4:    1rem;         /* 16px  — base unit */
+  --space-5:    1.25rem;      /* 20px  */
+  --space-6:    1.5rem;       /* 24px  — section inner padding */
+  --space-7:    1.75rem;      /* 28px  */
+  --space-8:    2rem;         /* 32px  — card padding */
+  --space-9:    2.25rem;      /* 36px  */
+  --space-10:   2.5rem;       /* 40px  */
+  --space-12:   3rem;         /* 48px  — section gap */
+  --space-14:   3.5rem;       /* 56px  */
+  --space-16:   4rem;         /* 64px  — large section padding */
+  --space-20:   5rem;         /* 80px  */
+  --space-24:   6rem;         /* 96px  — section top/bottom */
+  --space-28:   7rem;         /* 112px */
+  --space-32:   8rem;         /* 128px — hero padding */
+  --space-40:   10rem;        /* 160px */
+  --space-48:   12rem;        /* 192px */
+
+
+  /* ═══════════════════════════════════════════════════════════
+     BORDER RADIUS
+     ═══════════════════════════════════════════════════════════ */
+
+  --radius-none:  0;
+  --radius-xs:    2px;    /* subtle rounding — input subtle */
+  --radius-sm:    4px;    /* small chips, tags */
+  --radius-md:    8px;    /* inputs, tooltips */
+  --radius-lg:    16px;   /* cards, panels */
+  --radius-xl:    20px;   /* large cards */
+  --radius-2xl:   28px;   /* modals */
+  --radius-3xl:   36px;   /* hero image frames */
+  --radius-full:  9999px; /* pills, badges, circular buttons */
+
+
+  /* ═══════════════════════════════════════════════════════════
+     SHADOW SYSTEM
+     Layered shadows: resting → hover → elevated → floating
+     ═══════════════════════════════════════════════════════════ */
+
+  /* Base elevation shadows */
+  --shadow-none:  none;
+  --shadow-xs:    0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-sm:    0 1px 3px rgba(0, 0, 0, 0.08),
+                  0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md:    0 4px 12px rgba(0, 0, 0, 0.08),
+                  0 2px 4px rgba(0, 0, 0, 0.05);
+  --shadow-lg:    0 12px 32px rgba(0, 0, 0, 0.12),
+                  0 4px 8px rgba(0, 0, 0, 0.06);
+  --shadow-xl:    0 24px 56px rgba(0, 0, 0, 0.16),
+                  0 8px 16px rgba(0, 0, 0, 0.08);
+  --shadow-2xl:   0 48px 96px rgba(0, 0, 0, 0.20),
+                  0 16px 32px rgba(0, 0, 0, 0.10);
+
+  /* Branded shadows */
+  --shadow-card-hover:  0 20px 48px rgba(0, 16, 51, 0.16),
+                        0 6px 12px rgba(0, 16, 51, 0.08);
+  --shadow-gold-glow:   0 8px 24px rgba(197, 154, 76, 0.40);
+  --shadow-navy-glow:   0 8px 24px rgba(15, 58, 128, 0.30);
+
+  /* Inset / inner shadows */
+  --shadow-inner:       inset 0 2px 4px rgba(0, 0, 0, 0.06);
+  --shadow-inner-sm:    inset 0 1px 2px rgba(0, 0, 0, 0.04);
+
+  /* Focus ring (use in :focus-visible rules) */
+  --focus-ring:         0 0 0 3px rgba(15, 58, 128, 0.35);
+  --focus-ring-offset:  0 0 0 2px var(--color-white),
+                        0 0 0 5px rgba(15, 58, 128, 0.45);
+  --focus-ring-gold:    0 0 0 3px rgba(197, 154, 76, 0.50);
+  --focus-ring-error:   0 0 0 3px rgba(220, 38, 38, 0.35);
+
+
+  /* ═══════════════════════════════════════════════════════════
+     TRANSITIONS
+     ═══════════════════════════════════════════════════════════ */
+
+  --transition-fast:      150ms ease;
+  --transition-base:      250ms ease;
+  --transition-slow:      400ms ease;
+  --transition-spring:    350ms cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Per-property shorthand transitions */
+  --transition-color:     color var(--transition-fast),
+                          background-color var(--transition-fast),
+                          border-color var(--transition-fast);
+  --transition-shadow:    box-shadow var(--transition-base);
+  --transition-transform: transform var(--transition-base);
+  --transition-opacity:   opacity var(--transition-fast);
+
+
+  /* ═══════════════════════════════════════════════════════════
+     Z-INDEX STACKING
+     ═══════════════════════════════════════════════════════════ */
+
+  --z-below:    -1;
+  --z-base:      1;
+  --z-above:     2;
+  --z-raised:    5;
+  --z-dropdown:  10;
+  --z-sticky:    15;
+  --z-nav:       20;
+  --z-overlay:   40;
+  --z-modal:     60;
+  --z-toast:     80;
+  --z-max:       999;
+
+
+  /* ═══════════════════════════════════════════════════════════
+     LAYOUT — CONTAINER WIDTHS
+     ═══════════════════════════════════════════════════════════ */
+
+  --container-xs:    480px;   /* mobile-only modals */
+  --container-sm:    640px;   /* narrow content columns */
+  --container-md:    768px;   /* tablet content */
+  --container-lg:    1024px;  /* desktop content */
+  --container-xl:    1280px;  /* wide layout */
+  --container-2xl:   1440px;  /* full-bleed max */
+  --container-prose: 68ch;    /* readable line length */
+
+
+  /* ═══════════════════════════════════════════════════════════
+     COMPONENT-LEVEL SEMANTIC TOKENS
+     Map raw primitives to component intent.
+     These are the tokens components should reference.
+     ═══════════════════════════════════════════════════════════ */
+
+  /* Interactive element defaults */
+  --color-interactive:          var(--color-primary-700);
+  --color-interactive-hover:    var(--color-primary-600);
+  --color-interactive-active:   var(--color-primary-950);
+  --color-interactive-disabled: var(--color-ink-300);
+
+  /* Text defaults */
+  --color-text-primary:   var(--color-ink-900);
+  --color-text-secondary: var(--color-ink-500);
+  --color-text-muted:     var(--color-ink-300);
+  --color-text-inverse:   var(--color-white);
+  --color-text-accent:    var(--color-accent-600);
+
+  /* Border defaults */
+  --color-border:        var(--color-ink-100);
+  --color-border-strong: var(--color-ink-300);
+  --color-border-focus:  var(--color-primary-700);
+
+  /* Surface defaults */
+  --color-bg-page:   var(--color-surface-0);
+  --color-bg-card:   var(--color-surface-0);
+  --color-bg-inset:  var(--color-surface-2);
+  --color-bg-muted:  var(--color-surface-1);
+
+}
+
+/* ===== WHITE + BLUE PREMIUM THEME ===== */
+
+:root {
+  --bg-main: #ffffff;
+  --bg-soft: #f4f8ff;
+  --blue-primary: #1f5fa8;
+  --blue-accent: #4f8df5;
+  --text-main: #0a1f44;
+  --text-sub: #4a5a75;
+  --gold-primary: #f4b400;
+  --gold-accent: #ff8c00;
+  --border-light: #e6ecf5;
+}
+
+body {
+  background: var(--bg-main);
+  color: var(--text-main);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* HERO */
+.hero {
+  background: linear-gradient(135deg,#ffffff 0%,#eef4ff 50%,#dbe8ff 100%);
+  color: var(--text-main);
+}
+
+/* NAV */
+.nav {
+  background: #ffffff;
+  border-bottom: 1px solid var(--border-light);
+}
+
+/* TEXT */
+h1,h2,h3 {
+  color: var(--text-main);
+  letter-spacing: -0.02em;
+}
+
+p {
+  color: var(--text-sub);
+}
+
+/* BUTTON */
+button {
+  background: linear-gradient(135deg,#f4b400,#ff8c00);
+  color: #111;
+  border-radius: 30px;
+  font-weight: 600;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+}
+
+/* PRODUCT */
+.product-card {
+  background: #ffffff;
+  border: 1px solid var(--border-light);
+  border-radius: 16px;
+}
+
+.product-card:hover {
+  box-shadow: 0 12px 30px rgba(0,0,0,0.15);
+}
+
+/* SECTIONS */
+.section-blue {
+  background: var(--bg-soft);
+}
+
+.section-light {
+  background: #ffffff;
+}

@@ -1,0 +1,29 @@
+{
+  "name": "@gtg/ui",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./tokens.css": "./src/tokens.css",
+    "./fonts.css": "./src/fonts.css",
+    "./components.css": "./src/components.css"
+  },
+  "scripts": {
+    "type-check": "tsc --noEmit",
+    "build": "echo \"@gtg/ui: no build step required\""
+  },
+  "dependencies": {
+    "@gtg/types": "workspace:*",
+    "react": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.7",
+    "typescript": "~5.9.3"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name": "@gtg/supabase",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing": "./src/testing.ts"
+  },
+  "scripts": {
+    "type-check": "tsc --noEmit",
+    "build": "echo \"@gtg/supabase: no build step required\"",
+    "db:start": "supabase start",
+    "db:reset": "supabase db reset",
+    "db:stop": "supabase stop",
+    "gen:types": "supabase gen types typescript --local --schema public > src/types.ts",
+    "gen:types:remote": "supabase gen types typescript --project-id \"$SUPABASE_PROJECT_REF\" --schema public > src/types.ts"
+  },
+  "dependencies": {
+    "@gtg/types": "workspace:*",
+    "@supabase/supabase-js": "^2.50.3"
+  },
+  "devDependencies": {
+    "supabase": "^2.23.4",
+    "typescript": "~5.9.3"
+  }
+}

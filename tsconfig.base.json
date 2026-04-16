@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    // ─── Language & Environment ───────────────────────────────────────
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "useDefineForClassFields": true,
+
+    // ─── Module Resolution ────────────────────────────────────────────
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
+
+    // ─── Emit ─────────────────────────────────────────────────────────
+    // noEmit=true: packages are consumed as source by Vite per-app — no tsc emit step.
+    "noEmit": true,
+
+    // ─── Interop ──────────────────────────────────────────────────────
+    // verbatimModuleSyntax implies: isolatedModules, allowSyntheticDefaultImports
+    // esModuleInterop retained for CJS interop type checking (Supabase, Stripe SDKs)
+    "esModuleInterop": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+
+    // ─── Type Strictness ─────────────────────────────────────────────
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+
+    // ─── Path Resolution ─────────────────────────────────────────────
+    "baseUrl": ".",
+    "paths": {
+      "@gtg/ui": ["packages/ui/src/index.ts"],
+      "@gtg/ui/*": ["packages/ui/src/*"]
+    },
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  }
+}
