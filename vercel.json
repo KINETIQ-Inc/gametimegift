@@ -1,4 +1,4 @@
 {
-  "buildCommand": "pnpm build",
-  "outputDirectory": "dist"
+  "buildCommand": "pnpm --filter @gtg/storefront build",
+  "outputDirectory": "apps/storefront/dist"
 }
