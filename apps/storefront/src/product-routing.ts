@@ -157,7 +157,10 @@ export function filterProducts(
 ): ProductListItem[] {
   return products.filter((product) => {
     const licenseMatch = licenseFilter === 'ALL' || product.license_body === licenseFilter
-    const sportMatch = sportFilter === 'ALL' || getSportFromProduct(product) === sportFilter
+    const sportMatch =
+      sportFilter === 'ALL' ||
+      sportFilter === 'FOOTBALL' ||
+      getSportFromProduct(product) === sportFilter
     return licenseMatch && sportMatch
   })
 }
