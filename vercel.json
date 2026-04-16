@@ -1,5 +1,11 @@
 {
-  "buildCommand": "pnpm --filter @gtg/storefront build",
-  "outputDirectory": "dist",
-  "installCommand": "pnpm install"
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "cd apps/storefront && pnpm build",
+  "outputDirectory": "apps/storefront/dist",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
 }

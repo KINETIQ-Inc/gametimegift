@@ -10,9 +10,9 @@ import './index.css'
 import App from './App.tsx'
 import { StorefrontSessionProvider } from './contexts/StorefrontSessionContext'
 
-initEnv(import.meta.env)
-
-const env = getEnv()
+type BootstrapResult =
+  | { ok: true; env: ReturnType<typeof getEnv> }
+  | { ok: false; message: string }
 
 if (typeof window !== 'undefined') {
   window.history.scrollRestoration = 'manual'
@@ -21,10 +21,23 @@ if (typeof window !== 'undefined') {
   document.body.scrollLeft = 0
 }
 
-configureApiClient({
-  supabaseUrl: env.supabaseUrl,
-  supabaseAnonKey: env.supabaseAnonKey,
-})
+function initializeBootstrap(): BootstrapResult {
+  try {
+    initEnv(import.meta.env)
+    const env = getEnv()
+
+    configureApiClient({
+      supabaseUrl: env.supabaseUrl,
+      supabaseAnonKey: env.supabaseAnonKey,
+    })
+
+    return { ok: true, env }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    console.error('[GTG] Storefront bootstrap failed', message)
+    return { ok: false, message }
+  }
+}
 
 function StorefrontBootScreen() {
   return (
@@ -55,16 +68,71 @@ function StorefrontBootScreen() {
   )
 }
 
+function StorefrontErrorScreen({ message }: { message: string }) {
+  return (
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'grid',
+        placeItems: 'center',
+        padding: 24,
+        background: 'linear-gradient(180deg, #fff8f5 0%, #ffffff 100%)',
+        color: '#1a2033',
+      }}
+      role="alert"
+      aria-live="assertive"
+    >
+      <div style={{ maxWidth: 720, textAlign: 'left' }}>
+        <p style={{ margin: '0 0 12px', fontSize: 12, letterSpacing: '0.16em', textTransform: 'uppercase', fontWeight: 700, color: '#9c2f10' }}>
+          Startup Error
+        </p>
+        <h1 style={{ margin: '0 0 12px', fontSize: 32, lineHeight: 1.1 }}>
+          The storefront could not finish loading
+        </h1>
+        <p style={{ margin: '0 0 16px', fontSize: 16, lineHeight: 1.6 }}>
+          The app hit a configuration or startup problem before React could render normally.
+        </p>
+        <pre
+          style={{
+            margin: 0,
+            padding: 16,
+            borderRadius: 12,
+            background: '#1a2033',
+            color: '#f6f8ff',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            fontSize: 13,
+            lineHeight: 1.5,
+          }}
+        >
+          {message}
+        </pre>
+      </div>
+    </div>
+  )
+}
+
 function BootstrapApp() {
   const [sessionReady, setSessionReady] = useState(false)
+  const [bootstrapError, setBootstrapError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
 
     async function bootstrapSession(): Promise<void> {
-      await ensureAnonymousSession()
-      if (!cancelled) {
-        setSessionReady(true)
+      try {
+        await ensureAnonymousSession()
+        if (!cancelled) {
+          setSessionReady(true)
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setBootstrapError(
+            error instanceof Error
+              ? error.message
+              : 'Anonymous session initialization failed.',
+          )
+        }
       }
     }
 
@@ -74,6 +142,10 @@ function BootstrapApp() {
       cancelled = true
     }
   }, [])
+
+  if (bootstrapError) {
+    return <StorefrontErrorScreen message={bootstrapError} />
+  }
 
   if (!sessionReady) {
     return <StorefrontBootScreen />
@@ -89,9 +161,14 @@ function BootstrapApp() {
 }
 
 function bootstrap(): void {
+  const bootstrapResult = initializeBootstrap()
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
-      <BootstrapApp />
+      {bootstrapResult.ok ? (
+        <BootstrapApp />
+      ) : (
+        <StorefrontErrorScreen message={bootstrapResult.message} />
+      )}
     </StrictMode>,
   )
 }

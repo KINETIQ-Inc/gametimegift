@@ -46,6 +46,18 @@ function getEnvSpecificOrigins(appEnv: AppEnv): string[] {
   return parseOriginsEnv(Deno.env.get(envVarByAppEnv[appEnv]))
 }
 
+function isPreviewOrigin(origin: string): boolean {
+  try {
+    const parsed = new URL(origin)
+    return (
+      parsed.protocol === 'https:' &&
+      parsed.hostname.endsWith('.vercel.app')
+    )
+  } catch {
+    return false
+  }
+}
+
 export function getAllowedOrigins(): Set<string> {
   const origins = new Set<string>(LOCAL_ALLOWED_ORIGINS)
   const appEnv = getAppEnv()
@@ -69,7 +81,14 @@ export function getAllowedOrigins(): Set<string> {
 }
 
 export function isAllowedOrigin(origin: string): boolean {
-  return getAllowedOrigins().has(origin)
+  if (getAllowedOrigins().has(origin)) {
+    return true
+  }
+
+  // Allow ephemeral Vercel preview deployments outside production so preview
+  // URLs can exercise the storefront checkout flow without manual allowlist
+  // edits for every deployment hostname.
+  return getAppEnv() !== 'production' && isPreviewOrigin(origin)
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
