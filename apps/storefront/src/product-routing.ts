@@ -16,17 +16,78 @@ export function slugifySegment(value: string): string {
     .replace(/^-+|-+$/g, '')
 }
 
-export function getSportFromProduct(product: ProductListItem): SportFilter | null {
-  const name = product.name.toLowerCase()
-  const sku = product.sku.toLowerCase()
+const SPORT_KEYWORDS: Record<Exclude<SportFilter, 'ALL'>, readonly string[]> = {
+  FOOTBALL: [
+    'football',
+    'ftbl',
+    'pigskin',
+    'quarterback',
+    'touchdown',
+    'tailgate',
+    'game day',
+    'gameday',
+    'kickoff',
+    'gridiron',
+  ],
+  BASKETBALL: [
+    'basketball',
+    'bball',
+    'bskt',
+    'hoops',
+    'slam dunk',
+    'three pointer',
+    'three-point',
+    'courtside',
+    'tipoff',
+  ],
+  SOCCER: [
+    'soccer',
+    'socc',
+    'futbol',
+    'fútbol',
+    'pitch',
+    'goalkeeper',
+    'striker',
+  ],
+  BASEBALL: [
+    'baseball',
+    'bsbl',
+    'home run',
+    'diamond',
+    'slugger',
+    'outfield',
+    'infield',
+  ],
+  HOCKEY: [
+    'hockey',
+    'hky',
+    'puck',
+    'rink',
+    'slap shot',
+    'hat trick',
+    'goalie',
+  ],
+}
 
-  if (name.includes('football') || sku.includes('ftbl')) return 'FOOTBALL'
-  if (name.includes('basketball') || sku.includes('bball') || sku.includes('bskt')) {
-    return 'BASKETBALL'
-  }
-  if (name.includes('soccer') || sku.includes('socc')) return 'SOCCER'
-  if (name.includes('baseball') || sku.includes('bsbl')) return 'BASEBALL'
-  if (name.includes('hockey') || sku.includes('hky')) return 'HOCKEY'
+function containsKeyword(value: string, keywords: readonly string[]): boolean {
+  return keywords.some((keyword) => value.includes(keyword))
+}
+
+export function getSportFromProduct(product: ProductListItem): SportFilter | null {
+  const haystack = [
+    product.name,
+    product.sku,
+    product.description ?? '',
+    product.school ?? '',
+  ]
+    .join(' ')
+    .toLowerCase()
+
+  if (containsKeyword(haystack, SPORT_KEYWORDS.FOOTBALL)) return 'FOOTBALL'
+  if (containsKeyword(haystack, SPORT_KEYWORDS.BASKETBALL)) return 'BASKETBALL'
+  if (containsKeyword(haystack, SPORT_KEYWORDS.SOCCER)) return 'SOCCER'
+  if (containsKeyword(haystack, SPORT_KEYWORDS.BASEBALL)) return 'BASEBALL'
+  if (containsKeyword(haystack, SPORT_KEYWORDS.HOCKEY)) return 'HOCKEY'
 
   return null
 }
