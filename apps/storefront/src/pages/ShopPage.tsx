@@ -17,7 +17,8 @@
  *   ?license=CLC|ARMY
  */
 
-import { lazy, startTransition, Suspense, useDeferredValue, useEffect } from 'react'
+import { lazy, startTransition, Suspense, useDeferredValue, useEffect, useRef } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Button, Heading } from '@gtg/ui'
 import { formatUsdCents } from '@gtg/utils'
 import { type ProductListItem } from '@gtg/api'
@@ -91,6 +92,8 @@ function DeferredFallback({ minHeight = 160 }: { minHeight?: number }) {
 // ── ShopPage ──────────────────────────────────────────────────
 
 export function ShopPage() {
+  const navigate = useNavigate()
+  const location = useLocation()
   const {
     products,
     loading,
@@ -99,10 +102,11 @@ export function ShopPage() {
     setLicenseFilter,
     setSportFilter,
   } = useStorefront()
+  const gridRef = useRef<HTMLElement | null>(null)
 
   // Read URL params on mount to pre-set filters
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
+    const params = new URLSearchParams(location.search)
     const sport = params.get('sport')?.toUpperCase()
     const license = params.get('license')?.toUpperCase()
 
@@ -115,7 +119,7 @@ export function ShopPage() {
     if (license && validLicenses.includes(license)) {
       setLicenseFilter(license)
     }
-  }, [setSportFilter, setLicenseFilter])
+  }, [location.search, setSportFilter, setLicenseFilter])
 
   const filteredProducts = filterProducts(
     products,
@@ -127,10 +131,35 @@ export function ShopPage() {
   const activeLicenseLabel = LICENSE_TABS.find((tab) => tab.value === licenseFilter)?.label ?? 'All Collections'
   const hasActiveFilters = sportFilter !== 'ALL' || licenseFilter !== 'ALL'
 
+  function syncShopQuery(nextSport: string, nextLicense: string): void {
+    const params = new URLSearchParams()
+    if (nextSport !== 'ALL') {
+      params.set('sport', nextSport)
+    }
+    if (nextLicense !== 'ALL') {
+      params.set('license', nextLicense)
+    }
+
+    const nextSearch = params.toString()
+    navigate(
+      {
+        pathname: '/shop',
+        search: nextSearch ? `?${nextSearch}` : '',
+      },
+      { replace: true },
+    )
+  }
+
+  function scrollToInventoryWall(): void {
+    gridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   function handleSportSelect(sport: string) {
     startTransition(() => {
       setSportFilter(sport)
     })
+    syncShopQuery(sport, licenseFilter)
+    scrollToInventoryWall()
     trackStorefrontEvent('catalog_filter_changed', { sportFilter: sport, licenseFilter })
   }
 
@@ -138,6 +167,8 @@ export function ShopPage() {
     startTransition(() => {
       setLicenseFilter(license)
     })
+    syncShopQuery(sportFilter, license)
+    scrollToInventoryWall()
     trackStorefrontEvent('catalog_filter_changed', { sportFilter, licenseFilter: license })
   }
 
@@ -244,6 +275,8 @@ export function ShopPage() {
                       setSportFilter('ALL')
                       setLicenseFilter('ALL')
                     })
+                    syncShopQuery('ALL', 'ALL')
+                    scrollToInventoryWall()
                   }}
                 >
                   Reset
@@ -254,7 +287,7 @@ export function ShopPage() {
         </section>
 
         {/* ── 4. Product grid ── */}
-        <main className="shop-grid-area">
+        <main ref={gridRef} className="shop-grid-area">
           {loading ? (
             <div className="shop-grid-loading" aria-label="Loading products" aria-busy="true">
               {Array.from({ length: 8 }).map((_, i) => (
@@ -320,6 +353,8 @@ export function ShopPage() {
                     setSportFilter('ALL')
                     setLicenseFilter('ALL')
                   })
+                  syncShopQuery('ALL', 'ALL')
+                  scrollToInventoryWall()
                 }}
               >
                 Show all gifts
