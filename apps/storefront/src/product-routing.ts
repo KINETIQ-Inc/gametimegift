@@ -89,14 +89,10 @@ export function getSportFromProduct(product: ProductListItem): SportFilter | nul
   if (containsKeyword(haystack, SPORT_KEYWORDS.BASEBALL)) return 'BASEBALL'
   if (containsKeyword(haystack, SPORT_KEYWORDS.HOCKEY)) return 'HOCKEY'
 
-  // Current storefront inventory is heavily football-led. When a licensed
-  // team collectible does not explicitly name another sport yet, default it
-  // into Football so the Shop → Football view remains usable instead of empty.
-  if (product.license_body === 'CLC' || product.license_body === 'ARMY') {
-    return 'FOOTBALL'
-  }
-
-  return null
+  // Current storefront catalog is football-led. If an item doesn't clearly
+  // identify as another sport, treat it as Football so the primary shop
+  // collection never drops out due to incomplete product copy.
+  return 'FOOTBALL'
 }
 
 export function shortenProductName(name: string): string {
