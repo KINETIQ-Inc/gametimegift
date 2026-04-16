@@ -39,3 +39,33 @@
 * Avoid duplication
 * Keep components reusable
 * Follow existing project structure
+
+## Frontend Data Rule (CRITICAL)
+
+* Frontend is READ-ONLY
+* Frontend may fetch and display data from Supabase
+* Frontend must NEVER:
+
+  * calculate prices (no math on cents, totals, discounts, taxes, or fees)
+  * enforce inventory (no stock gating beyond UI display)
+  * make business decisions (no eligibility, licensing, fulfillment, or commission logic)
+
+* All business logic must live in:
+
+  * Edge Functions
+  * API layer (`@gtg/api`)
+
+* Any violation of this rule is CRITICAL severity in audits
+
+* Acceptable frontend patterns:
+
+  * Displaying `product.retail_price_cents` from API response — OK
+  * Displaying `product.in_stock` to hide/show a button — OK (UI only)
+  * Passing user input (codes, quantities) to API calls — OK
+  * Using `serverOrderTotalCents` from `createOrder()` result — OK
+
+* Prohibited frontend patterns:
+
+  * Computing subtotals, taxes, or discounts locally
+  * Blocking checkout based on locally-evaluated inventory
+  * Applying discount percentages or royalty rates in component code
