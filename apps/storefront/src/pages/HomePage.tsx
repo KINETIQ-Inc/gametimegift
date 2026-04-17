@@ -49,7 +49,6 @@ import selectorBasketballArt from '../assets/selector_basetball.png'
 import selectorBaseballArt from '../assets/selector_baseball.png'
 import selectorHockeyArt from '../assets/selector_hockey.png'
 import gameTimeGiftLogo from '../assets/game_time_gift.png'
-import floralArrangement from '../assets/floral_arrangement.png'
 const StorefrontFooter = lazy(async () =>
   import('../components/footer/StorefrontFooter').then((m) => ({ default: m.StorefrontFooter })),
 )
@@ -69,6 +68,9 @@ const SPORT_SELECTOR_ITEMS = [
   { sport: 'BASEBALL' as const, label: 'Baseball', art: selectorBaseballArt },
   { sport: 'HOCKEY' as const, label: 'Hockey', art: selectorHockeyArt },
 ] as const
+
+const ARMY_VASE_FEATURE_ART =
+  'https://gametimegift.com/assets/products/united-states-army.png?v=2026-03-31'
 
 function scrollToId(id: string): void {
   const target = document.getElementById(id)
@@ -365,7 +367,7 @@ export function HomePage() {
                   and display long after the ceremony is over.
                 </p>
                 <div className="hero-actions">
-                  <Link to="/shop?license=ARMY" className="gtg-btn gtg-btn--gold gtg-btn--lg">
+                  <Link to="/shop?license=ARMY" className="gtg-btn gtg-btn--gold gtg-btn--lg hero-primary-cta">
                     Order Today
                   </Link>
                 </div>
@@ -373,12 +375,15 @@ export function HomePage() {
               <div className="gift-positioning-floral" aria-hidden="true">
                 <div className="gift-positioning-spotlight">
                   <div className="gift-positioning-spotlight-art">
-                    <img src={floralArrangement} alt="" loading="lazy" decoding="async" />
+                    <img src={ARMY_VASE_FEATURE_ART} alt="" loading="lazy" decoding="async" />
                   </div>
                   <div className="gift-positioning-spotlight-copy">
                     <span className="gift-positioning-spotlight-label">Army Graduation Spotlight</span>
                     <strong>Giving them their flowers, the right way.</strong>
                     <span>Built for West Point families looking for an Army gift that feels personal, elevated, and lasting.</span>
+                    <Link to="/shop?license=ARMY" className="gtg-btn gtg-btn--gold hero-primary-cta">
+                      Order Today
+                    </Link>
                   </div>
                 </div>
               </div>
