@@ -399,6 +399,12 @@ export function getTableClient() {
  * @param body          JSON-serializable request payload
  * @param callerName    Calling TypeScript function name — used in error messages
  */
+async function resolveAuthHeader(): Promise<Record<string, string>> {
+  const { data } = await getSupabaseClient().auth.getSession()
+  const token = data?.session?.access_token
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
 export async function invokeFunction<T>(
   functionName: string,
   body: Record<string, unknown>,
@@ -410,10 +416,12 @@ export async function invokeFunction<T>(
 
   return invokeWithRetry(functionName, callerName, options, async () => {
     const client = getSupabaseClient()
+    const authHeaders = await resolveAuthHeader()
 
     const { data, error } = await client.functions.invoke<FunctionEnvelope<T>>(functionName, {
       body,
       signal: options?.signal,
+      headers: authHeaders,
     })
 
     if (error) {
@@ -448,10 +456,12 @@ export async function invokeFunctionDirect<T>(
 
   return invokeWithRetry(functionName, callerName, options, async () => {
     const client = getSupabaseClient()
+    const authHeaders = await resolveAuthHeader()
 
     const { data, error } = await client.functions.invoke<T>(functionName, {
       body,
       signal: options?.signal,
+      headers: authHeaders,
     })
 
     if (error) {
