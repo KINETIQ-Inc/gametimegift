@@ -16,6 +16,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import {
   createOrder,
+  ensureAnonymousSession,
   isAuthError,
   resolveConsultantCode,
   signOut,
