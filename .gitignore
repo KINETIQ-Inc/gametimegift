@@ -11,11 +11,13 @@ out/
 
 # ─── Environment — NEVER COMMIT ──────────────────────────────────────────────
 .env
+.env.*
 .env.local
 .env.*.local
 .env.development
 .env.staging
 .env.production
+apps/storefront/.env
 
 # ─── Supabase ────────────────────────────────────────────────────────────────
 supabase/.branches/

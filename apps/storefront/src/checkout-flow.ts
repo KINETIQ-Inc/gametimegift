@@ -18,7 +18,7 @@
  *   everything we need in sessionStorage before the redirect.
  */
 
-import type { CreateCheckoutSessionResult } from '@gtg/api'
+import type { CreateOrderResult } from '@gtg/api'
 
 const SESSION_STORAGE_KEY = 'gtg-checkout-session-v1'
 const IDEMPOTENCY_STORAGE_KEY = 'gtg-checkout-idempotency-v1'
@@ -36,7 +36,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 export interface StoredCheckoutSession {
   orderId: string
   orderNumber: string
-  sessionId: string
+  paymentIntentId: string
   unitId: string
   serialNumber: string
   productId: string
@@ -123,7 +123,7 @@ export function buildCancelUrl(productSku: string, productSlug: string): string 
  * Stripe redirect. Call with the full CreateCheckoutSessionResult.
  */
 export function storeCheckoutSession(
-  result: CreateCheckoutSessionResult,
+  result: CreateOrderResult,
   customerName: string,
   customerEmail: string,
   retailPriceCents: number,
@@ -131,7 +131,7 @@ export function storeCheckoutSession(
   const session: StoredCheckoutSession = {
     orderId: result.order_id,
     orderNumber: result.order_number,
-    sessionId: result.session_id,
+    paymentIntentId: result.payment_intent_id,
     unitId: result.unit_id,
     serialNumber: result.serial_number,
     productId: result.product_id,

@@ -187,11 +187,101 @@ export interface CreateCheckoutSessionResult {
   channel: 'storefront_direct' | 'consultant_assisted'
 }
 
-async function invokeCreateOrder(
+export interface CreateOrderInput {
+  productId: string
+  quantity?: 1
+  customerName: string
+  customerEmail: string
+  idempotencyKey: string
+  consultantId?: string
+  discountCode?: string
+}
+
+export interface CreateOrderResult {
+  order_id: string
+  order_number: string
+  payment_intent_id: string
+  client_secret: string
+  total_cents: number
+  unit_id: string
+  serial_number: string
+  product_id: string
+  sku: string
+  product_name: string
+  channel: 'storefront_direct' | 'consultant_assisted'
+}
+
+async function invokeCreateCheckoutSession(
   input: CreateCheckoutSessionInput,
   options?: InvokeFunctionOptions,
 ): Promise<CreateCheckoutSessionResult> {
   const { productId, customerName, customerEmail, successUrl, cancelUrl, idempotencyKey, consultantId, discountCode } =
+    input
+
+  if (!productId || typeof productId !== 'string') {
+    throw new ApiRequestError(
+      '[GTG] createCheckoutSession(): productId is required.',
+      'VALIDATION_ERROR',
+    )
+  }
+  if (!customerName || typeof customerName !== 'string') {
+    throw new ApiRequestError(
+      '[GTG] createCheckoutSession(): customerName is required.',
+      'VALIDATION_ERROR',
+    )
+  }
+  if (!customerEmail || typeof customerEmail !== 'string') {
+    throw new ApiRequestError(
+      '[GTG] createCheckoutSession(): customerEmail is required.',
+      'VALIDATION_ERROR',
+    )
+  }
+  if (!successUrl || typeof successUrl !== 'string') {
+    throw new ApiRequestError(
+      '[GTG] createCheckoutSession(): successUrl is required.',
+      'VALIDATION_ERROR',
+    )
+  }
+  if (!cancelUrl || typeof cancelUrl !== 'string') {
+    throw new ApiRequestError(
+      '[GTG] createCheckoutSession(): cancelUrl is required.',
+      'VALIDATION_ERROR',
+    )
+  }
+  if (!idempotencyKey || typeof idempotencyKey !== 'string') {
+    throw new ApiRequestError(
+      '[GTG] createCheckoutSession(): idempotencyKey is required.',
+      'VALIDATION_ERROR',
+    )
+  }
+
+  assertUuidV4(productId, 'productId', 'createCheckoutSession')
+  if (consultantId) {
+    assertUuidV4(consultantId, 'consultantId', 'createCheckoutSession')
+  }
+
+  return invokeFunction<CreateCheckoutSessionResult>(
+    'create-checkout-session',
+    {
+      product_id: productId,
+      customer_name: customerName.trim(),
+      customer_email: customerEmail.trim().toLowerCase(),
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      idempotency_key: idempotencyKey.trim(),
+      ...(consultantId ? { consultant_id: consultantId } : {}),
+      ...(discountCode ? { discount_code: discountCode.trim().toUpperCase() } : {}),
+    },
+    'createCheckoutSession',
+    options,
+  )
+}
+
+async function invokeCreateOrder(
+  input: CreateOrderInput,
+  options?: InvokeFunctionOptions,
+): Promise<CreateOrderResult> {
+  const { productId, customerName, customerEmail, idempotencyKey, consultantId, discountCode } =
     input
 
   if (!productId || typeof productId !== 'string') {
@@ -212,18 +302,6 @@ async function invokeCreateOrder(
       'VALIDATION_ERROR',
     )
   }
-  if (!successUrl || typeof successUrl !== 'string') {
-    throw new ApiRequestError(
-      '[GTG] createOrder(): successUrl is required.',
-      'VALIDATION_ERROR',
-    )
-  }
-  if (!cancelUrl || typeof cancelUrl !== 'string') {
-    throw new ApiRequestError(
-      '[GTG] createOrder(): cancelUrl is required.',
-      'VALIDATION_ERROR',
-    )
-  }
   if (!idempotencyKey || typeof idempotencyKey !== 'string') {
     throw new ApiRequestError(
       '[GTG] createOrder(): idempotencyKey is required.',
@@ -236,14 +314,13 @@ async function invokeCreateOrder(
     assertUuidV4(consultantId, 'consultantId', 'createOrder')
   }
 
-  return invokeFunction<CreateCheckoutSessionResult>(
-    'create-checkout-session',
+  return invokeFunction<CreateOrderResult>(
+    'create-order',
     {
       product_id: productId,
+      quantity: 1,
       customer_name: customerName.trim(),
       customer_email: customerEmail.trim().toLowerCase(),
-      success_url: successUrl,
-      cancel_url: cancelUrl,
       idempotency_key: idempotencyKey.trim(),
       ...(consultantId ? { consultant_id: consultantId } : {}),
       ...(discountCode ? { discount_code: discountCode.trim().toUpperCase() } : {}),
@@ -261,7 +338,7 @@ export async function createCheckoutSession(
   input: CreateCheckoutSessionInput,
   options?: InvokeFunctionOptions,
 ): Promise<CreateCheckoutSessionResult> {
-  return invokeCreateOrder(input, options)
+  return invokeCreateCheckoutSession(input, options)
 }
 
 /**
@@ -272,8 +349,8 @@ export async function createCheckoutSession(
  * then hands off to Stripe.
  */
 export async function createOrder(
-  input: CreateCheckoutSessionInput,
+  input: CreateOrderInput,
   options?: InvokeFunctionOptions,
-): Promise<CreateCheckoutSessionResult> {
+): Promise<CreateOrderResult> {
   return invokeCreateOrder(input, options)
 }

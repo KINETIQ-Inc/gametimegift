@@ -210,6 +210,286 @@ function buildShippingAddress(
   }
 }
 
+async function handlePaymentIntentSucceeded(
+  req: Request,
+  stripe: Stripe,
+  event: Stripe.Event,
+  log: ReturnType<typeof createLogger>,
+  serviceAccountId: string,
+): Promise<Response> {
+  const intent = event.data.object as Stripe.PaymentIntent
+  const meta = (intent.metadata ?? {}) as SessionMetadata
+  const orderId = meta.order_id ?? null
+  const unitId = meta.unit_id
+
+  if (!orderId || !unitId) {
+    log.error('Missing order_id or unit_id in payment intent metadata; cannot process', {
+      payment_intent_id: intent.id,
+      order_id: orderId,
+      unit_id: unitId,
+    })
+    return jsonResponse(req, { received: true })
+  }
+
+  const channel = (meta.channel ?? 'storefront_direct') as 'storefront_direct' | 'consultant_assisted'
+  const admin = createAdminClient()
+
+  const { data: existingPaymentEvent } = await admin
+    .from('payment_events')
+    .select('id')
+    .eq('stripe_event_id', event.id)
+    .maybeSingle()
+
+  if (existingPaymentEvent) {
+    log.info('Event already fully processed (idempotent); skipping', { event_id: event.id })
+    return jsonResponse(req, { received: true })
+  }
+
+  const { data: existingOrderLine } = await admin
+    .from('order_lines')
+    .select('id, order_id')
+    .eq('unit_id', unitId)
+    .maybeSingle()
+
+  const charge = intent.latest_charge && typeof intent.latest_charge !== 'string'
+    ? intent.latest_charge as Stripe.Charge
+    : null
+
+  if (existingOrderLine) {
+    const { data: existingOrder } = await admin
+      .from('orders')
+      .select('id, order_number, total_cents, payment_intent_id, charge_id, customer_email')
+      .eq('id', existingOrderLine.order_id)
+      .single()
+
+    if (existingOrder) {
+      await admin.from('payment_events').insert({
+        order_id: existingOrder.id,
+        order_number: existingOrder.order_number,
+        customer_email: existingOrder.customer_email,
+        payment_method: 'card',
+        event_type: 'charge_succeeded',
+        amount_cents: existingOrder.total_cents,
+        stripe_event_id: event.id,
+        stripe_payment_intent_id: existingOrder.payment_intent_id ?? intent.id,
+        stripe_charge_id: existingOrder.charge_id ?? charge?.id ?? null,
+        performed_by: serviceAccountId,
+        description: `Payment received for order ${existingOrder.order_number}`,
+      })
+    }
+
+    return jsonResponse(req, { received: true })
+  }
+
+  const { data: unitData, error: unitError } = await admin
+    .from('serialized_units')
+    .select('id, serial_number, sku, product_name, status, license_body, royalty_rate')
+    .eq('id', unitId)
+    .single()
+
+  if (unitError || !unitData) {
+    log.error('Unit not found', { unit_id: unitId, error: unitError?.message })
+    return jsonError(req, 'Internal server error', 500)
+  }
+
+  const unit = unitData as UnitRow
+  if (unit.status !== 'reserved') {
+    log.error('Unit is not in reserved status; cannot sell', {
+      unit_id: unitId,
+      status: unit.status,
+    })
+    return jsonResponse(req, { received: true })
+  }
+
+  const { data: orderData, error: orderError } = await admin
+    .from('orders')
+    .select(
+      'id, order_number, channel, customer_name, customer_email, consultant_id, subtotal_cents, discount_cents, shipping_cents, tax_cents, total_cents, shipping_address',
+    )
+    .eq('id', orderId)
+    .single()
+
+  if (orderError || !orderData) {
+    log.error('Pending order not found for payment intent', {
+      order_id: orderId,
+      payment_intent_id: intent.id,
+      error: orderError?.message,
+    })
+    return jsonError(req, 'Internal server error', 500)
+  }
+
+  const orderRow = orderData as {
+    id: string
+    order_number: string
+    channel: 'storefront_direct' | 'consultant_assisted'
+    customer_name: string
+    customer_email: string
+    consultant_id: string | null
+    subtotal_cents: number
+    discount_cents: number
+    shipping_cents: number
+    tax_cents: number
+    total_cents: number
+    shipping_address: Record<string, unknown>
+  }
+
+  let consultant: ConsultantRow | null = null
+  let commissionRate: number | null = null
+  const consultantId = meta.consultant_id || orderRow.consultant_id || null
+
+  if (consultantId) {
+    const { data: consultantData, error: consultantError } = await admin
+      .from('consultant_profiles')
+      .select('id, display_name, legal_first_name, legal_last_name, commission_tier, custom_commission_rate')
+      .eq('id', consultantId)
+      .single()
+
+    if (consultantError || !consultantData) {
+      log.error('Consultant not found', { consultant_id: consultantId, error: consultantError?.message })
+      return jsonError(req, 'Internal server error', 500)
+    }
+
+    consultant = consultantData as ConsultantRow
+
+    if (consultant.commission_tier === 'custom') {
+      commissionRate = consultant.custom_commission_rate
+    } else {
+      const { data: tierConfig, error: tierError } = await admin
+        .from('commission_tier_config')
+        .select('rate')
+        .eq('tier', consultant.commission_tier)
+        .eq('is_active', true)
+        .single()
+
+      if (tierError || !tierConfig) {
+        log.error('No active commission tier config for tier', {
+          tier: consultant.commission_tier,
+          error: tierError?.message,
+        })
+        return jsonError(req, 'Internal server error', 500)
+      }
+
+      commissionRate = tierConfig.rate as number
+    }
+  }
+
+  const retailPriceCents = orderRow.subtotal_cents
+  const totalCents = intent.amount_received || intent.amount
+  const royaltyCents = Math.round(retailPriceCents * Number(unit.royalty_rate))
+  const commissionCents = commissionRate !== null
+    ? Math.round(retailPriceCents * Number(commissionRate))
+    : null
+
+  const customerName = meta.customer_name ?? charge?.billing_details?.name ?? orderRow.customer_name
+  const customerEmail = (
+    intent.receipt_email ??
+    charge?.billing_details?.email ??
+    orderRow.customer_email
+  ).toLowerCase()
+
+  const { data: updatedOrder, error: updateOrderError } = await admin
+    .from('orders')
+    .update({
+      status: 'paid',
+      customer_name: customerName,
+      customer_email: customerEmail,
+      consultant_id: consultantId,
+      consultant_name: consultant?.display_name ?? null,
+      shipping_address: orderRow.shipping_address,
+      payment_method: 'card',
+      payment_intent_id: intent.id,
+      charge_id: charge?.id ?? null,
+      subtotal_cents: retailPriceCents,
+      discount_cents: orderRow.discount_cents,
+      shipping_cents: orderRow.shipping_cents,
+      tax_cents: orderRow.tax_cents,
+      total_cents: totalCents,
+      paid_at: new Date().toISOString(),
+    })
+    .eq('id', orderId)
+    .select('id, order_number')
+    .single()
+
+  if (updateOrderError || !updatedOrder) {
+    log.error('Pending order update failed', {
+      order_id: orderId,
+      error: updateOrderError?.message,
+    })
+    return jsonError(req, 'Internal server error', 500)
+  }
+
+  const order = updatedOrder as { id: string; order_number: string }
+
+  const { data: orderLine, error: orderLineError } = await admin
+    .from('order_lines')
+    .insert({
+      order_id: order.id,
+      line_number: 1,
+      status: 'reserved',
+      unit_id: unitId,
+      serial_number: unit.serial_number,
+      sku: unit.sku,
+      product_name: unit.product_name,
+      license_body: unit.license_body,
+      royalty_rate: unit.royalty_rate,
+      royalty_cents: royaltyCents,
+      retail_price_cents: retailPriceCents,
+      commission_tier: consultant?.commission_tier ?? null,
+      commission_rate: commissionRate ?? null,
+      commission_cents: commissionCents ?? null,
+    })
+    .select('id')
+    .single()
+
+  if (orderLineError || !orderLine) {
+    log.error('Order line creation failed', { error: orderLineError?.message })
+    return jsonError(req, 'Internal server error', 500)
+  }
+
+  const processResult = await processOrderLedger(order.id, log)
+  if (!processResult.ok) {
+    log.error('process-order-ledger execution failed', {
+      order_id: order.id,
+      error: processResult.error,
+    })
+    return jsonError(req, 'Internal server error', 500)
+  }
+
+  const { error: paymentEventError } = await admin
+    .from('payment_events')
+    .insert({
+      order_id: order.id,
+      order_number: order.order_number,
+      customer_email: customerEmail,
+      payment_method: 'card',
+      event_type: 'charge_succeeded',
+      amount_cents: totalCents,
+      stripe_event_id: event.id,
+      stripe_payment_intent_id: intent.id,
+      stripe_charge_id: charge?.id ?? null,
+      performed_by: serviceAccountId,
+      description: `Payment received for order ${order.order_number}`,
+    })
+
+  if (paymentEventError) {
+    log.error('Payment event creation failed', { error: paymentEventError.message })
+    return jsonError(req, 'Internal server error', 500)
+  }
+
+  log.info('Payment intent order complete', {
+    order_id: order.id,
+    order_number: order.order_number,
+    payment_intent_id: intent.id,
+    channel: orderRow.channel ?? channel,
+  })
+
+  return jsonResponse(req, {
+    received: true,
+    order_id: order.id,
+    order_number: order.order_number,
+  })
+}
+
 // ─── Handler ──────────────────────────────────────────────────────────────────
 
 Deno.serve(async (req: Request): Promise<Response> => {
@@ -268,12 +548,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
     log.info('Stripe event received', { event_id: event.id, type: event.type })
 
     // ── Step 6: Filter event type ────────────────────────────────────────────
-    // Only checkout.session.completed triggers order creation.
-    // All other event types are acknowledged and ignored.
+    // Handle both legacy Checkout Sessions and inline PaymentIntent flow.
 
-    if (event.type !== 'checkout.session.completed') {
+    if (
+      event.type !== 'checkout.session.completed' &&
+      event.type !== 'payment_intent.succeeded'
+    ) {
       log.info('Ignoring event type (not handled)', { type: event.type })
       return jsonResponse(req, { received: true })
+    }
+
+    if (event.type === 'payment_intent.succeeded') {
+      return await handlePaymentIntentSucceeded(req, stripe, event, log, serviceAccountId)
     }
 
     const session = event.data.object as Stripe.Checkout.Session

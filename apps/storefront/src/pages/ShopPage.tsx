@@ -329,7 +329,7 @@ export function ShopPage() {
                       </span>
                     </div>
                   }
-                  actionLabel="Add to Cart"
+                  actionLabel="View Product"
                   href={getProductPath(product)}
                   ariaLabel={`${shortenProductName(product.name)} — ${formatUsdCents(product.retail_price_cents)}`}
                   onClick={() =>

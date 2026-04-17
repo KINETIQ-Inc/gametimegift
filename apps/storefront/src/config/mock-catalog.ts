@@ -13,7 +13,7 @@ export const DEV_MOCK_STOREFRONT_PRODUCTS: ProductListItem[] = FEATURED_SHOWCASE
   name: item.name,
   description: item.description,
   school: toSchoolName(item.name),
-  license_body: item.sku === 'NAVY-FTBL' ? 'ARMY' : item.license_body,
+  license_body: item.license_body,
   retail_price_cents: item.retail_price_cents,
   available_count: item.available_count,
   in_stock: item.in_stock,

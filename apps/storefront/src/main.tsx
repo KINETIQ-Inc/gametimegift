@@ -33,7 +33,10 @@ function initializeBootstrap(): BootstrapResult {
 
     return { ok: true, env }
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
+    const rawMessage = error instanceof Error ? error.message : String(error)
+    const message = rawMessage.includes('VITE_SUPABASE_URL') || rawMessage.includes('VITE_SUPABASE_ANON_KEY')
+      ? 'Missing Supabase environment variables. Check .env file.'
+      : rawMessage
     console.error('[GTG] Storefront bootstrap failed', message)
     return { ok: false, message }
   }
