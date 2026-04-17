@@ -350,19 +350,25 @@ export function HomePage() {
 
           <div className="storefront-shell">
             {/* ── 6. Brand positioning ── */}
-            <section className="gift-positioning" aria-label="About Game Time Gift">
+            <section className="gift-positioning" aria-label="West Point graduation feature">
               <div className="gift-positioning-inner">
-                <p className="gift-positioning-eyebrow">Brand Positioning</p>
+                <p className="gift-positioning-eyebrow">West Point Graduation Feature</p>
                 <h2 className="gift-positioning-title">
-                  Premium sports gifts,<br />
-                  built to live on display.
+                  Give them their flowers,<br />
+                  with an Army vase made to keep.
                 </h2>
-                <p className="gift-positioning-legacy">Not merch. A piece they keep.</p>
-                <p className="gift-positioning-occasions">Alumni · Hosts · Collectors · Families</p>
+                <p className="gift-positioning-legacy">May 20-23 at West Point Graduation.</p>
+                <p className="gift-positioning-occasions">Cadets · Families · Graduates · Legacy Gifts</p>
                 <p className="gift-positioning-body">
-                  Built for meaningful gifting and long-term display, every piece combines licensed credibility,
-                  verified authenticity, and a more elevated presentation than typical sports retail.
+                  We&apos;re featuring the Army vase as a graduation-week gift: a cleaner, more meaningful way
+                  to celebrate service, sacrifice, and the people who got them there. Built for flowers today,
+                  and display long after the ceremony is over.
                 </p>
+                <div className="hero-actions">
+                  <Link to="/shop?license=ARMY" className="gtg-btn gtg-btn--gold gtg-btn--lg">
+                    Order Today
+                  </Link>
+                </div>
               </div>
               <div className="gift-positioning-floral" aria-hidden="true">
                 <div className="gift-positioning-spotlight">
@@ -370,9 +376,9 @@ export function HomePage() {
                     <img src={floralArrangement} alt="" loading="lazy" decoding="async" />
                   </div>
                   <div className="gift-positioning-spotlight-copy">
-                    <span className="gift-positioning-spotlight-label">Signature Gift Object</span>
-                    <strong>Display-ready, not disposable.</strong>
-                    <span>Made for shelves, offices, entry tables, and gifting moments that matter.</span>
+                    <span className="gift-positioning-spotlight-label">Army Graduation Spotlight</span>
+                    <strong>Giving them their flowers, the right way.</strong>
+                    <span>Built for West Point families looking for an Army gift that feels personal, elevated, and lasting.</span>
                   </div>
                 </div>
               </div>
