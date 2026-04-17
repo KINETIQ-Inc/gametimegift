@@ -97,6 +97,7 @@ export function ShopPage() {
   const {
     products,
     loading,
+    error,
     licenseFilter,
     sportFilter,
     setLicenseFilter,
@@ -341,8 +342,17 @@ export function ShopPage() {
                 />
               ))}
             </div>
+          ) : error ? (
+            /* ── 5a. Error state ── */
+            <section className="shop-empty-state" aria-label="Catalog unavailable">
+              <Heading as="h2" display={false}>Unable to load the catalog</Heading>
+              <p>There was a problem fetching products. Please try again in a moment.</p>
+              <Button variant="primary" onClick={() => window.location.reload()}>
+                Reload
+              </Button>
+            </section>
           ) : (
-            /* ── 5. Empty state ── */
+            /* ── 5b. Empty state ── */
             <section className="shop-empty-state" aria-label="No results">
               <Heading as="h2" display={false}>No gifts match these filters</Heading>
               <p>Try removing a filter or browsing all sports.</p>

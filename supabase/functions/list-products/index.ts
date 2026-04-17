@@ -307,6 +307,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         sku:                product.sku,
         name:               product.name,
         description:        product.description,
+        school:             product.school,
         license_body:       product.license_body,
         retail_price_cents: product.retail_price_cents,
         available_count:    availableCount,
