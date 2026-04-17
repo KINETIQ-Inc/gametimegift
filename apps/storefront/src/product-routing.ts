@@ -73,7 +73,27 @@ function containsKeyword(value: string, keywords: readonly string[]): boolean {
   return keywords.some((keyword) => value.includes(keyword))
 }
 
+function getSportFromSku(sku: string | null | undefined): SportFilter | null {
+  if (!sku) return null
+
+  const normalizedSku = sku.trim().toUpperCase()
+  if (normalizedSku.length === 0) return null
+
+  const tokens = normalizedSku.split(/[^A-Z0-9]+/).filter(Boolean)
+
+  if (tokens.includes('FB') || tokens.includes('FTBL')) return 'FOOTBALL'
+  if (tokens.includes('BB') || tokens.includes('BBALL') || tokens.includes('BSKT')) return 'BASKETBALL'
+  if (tokens.includes('SC') || tokens.includes('SOCC')) return 'SOCCER'
+  if (tokens.includes('BSBL') || tokens.includes('BASEBALL')) return 'BASEBALL'
+  if (tokens.includes('HK') || tokens.includes('HKY')) return 'HOCKEY'
+
+  return null
+}
+
 export function getSportFromProduct(product: ProductListItem): SportFilter | null {
+  const skuSport = getSportFromSku(product.sku)
+  if (skuSport) return skuSport
+
   const haystack = [
     product.name,
     product.sku,
