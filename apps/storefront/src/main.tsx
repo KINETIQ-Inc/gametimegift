@@ -42,35 +42,6 @@ function initializeBootstrap(): BootstrapResult {
   }
 }
 
-function StorefrontBootScreen() {
-  return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'grid',
-        placeItems: 'center',
-        padding: 24,
-        background: 'linear-gradient(180deg, #f4f6fb 0%, #ffffff 100%)',
-        color: '#1a2033',
-      }}
-      aria-busy="true"
-      aria-live="polite"
-    >
-      <div style={{ maxWidth: 420, textAlign: 'center' }}>
-        <p style={{ margin: '0 0 12px', fontSize: 12, letterSpacing: '0.16em', textTransform: 'uppercase', fontWeight: 700, color: '#92600a' }}>
-          Secure Session
-        </p>
-        <h1 style={{ margin: '0 0 12px', fontSize: 32, lineHeight: 1.1 }}>
-          Preparing your storefront session
-        </h1>
-        <p style={{ margin: 0, fontSize: 16, lineHeight: 1.6 }}>
-          We&apos;re securing your session before any checkout actions become available.
-        </p>
-      </div>
-    </div>
-  )
-}
-
 function StorefrontErrorScreen({ message }: { message: string }) {
   return (
     <div
@@ -116,43 +87,19 @@ function StorefrontErrorScreen({ message }: { message: string }) {
 }
 
 function BootstrapApp() {
-  const [sessionReady, setSessionReady] = useState(false)
-  const [bootstrapError, setBootstrapError] = useState<string | null>(null)
+  const [sessionReady, setSessionReady] = useState(true)
 
   useEffect(() => {
-    let cancelled = false
-
-    async function bootstrapSession(): Promise<void> {
-      try {
-        await ensureAnonymousSession()
-        if (!cancelled) {
-          setSessionReady(true)
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setBootstrapError(
-            error instanceof Error
-              ? error.message
-              : 'Anonymous session initialization failed.',
-          )
-        }
-      }
-    }
-
-    void bootstrapSession()
-
-    return () => {
-      cancelled = true
-    }
+    // Best effort only: storefront and checkout should remain usable even
+    // when Supabase auth is unavailable or the anonymous session cannot be
+    // created immediately.
+    void ensureAnonymousSession().catch((error) => {
+      console.warn(
+        '[GTG] Optional anonymous session initialization failed',
+        error instanceof Error ? error.message : String(error),
+      )
+    })
   }, [])
-
-  if (bootstrapError) {
-    return <StorefrontErrorScreen message={bootstrapError} />
-  }
-
-  if (!sessionReady) {
-    return <StorefrontBootScreen />
-  }
 
   return (
     <StorefrontSessionProvider value={{ sessionReady }}>

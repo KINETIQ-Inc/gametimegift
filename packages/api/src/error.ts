@@ -146,7 +146,7 @@ export function toUserMessage(
       return 'Checkout took too long to start. Please try again.'
     }
     if (error.statusCode === 401) {
-      return 'Your session has expired. Please reload the page and sign in again.'
+      return 'Unable to start checkout right now. Please try again.'
     }
     if (error.statusCode === 403) {
       return 'You do not have permission to perform this action.'

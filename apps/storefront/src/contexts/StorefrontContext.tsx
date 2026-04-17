@@ -328,7 +328,7 @@ export function StorefrontProvider({ children }: { children: ReactNode }) {
     loading,
     error,
     sessionReady,
-    checkoutEnabled: sessionReady,
+    checkoutEnabled: true,
     licenseFilter,
     sportFilter,
     setLicenseFilter,

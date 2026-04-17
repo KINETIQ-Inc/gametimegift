@@ -16,7 +16,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import {
   createOrder,
-  ensureAnonymousSession,
   isAuthError,
   resolveConsultantCode,
   signOut,
@@ -429,8 +428,6 @@ export function CheckoutPage() {
     })
 
     try {
-      await ensureAnonymousSession()
-
       let consultantId: string | undefined
 
       if (trimmedCode) {
