@@ -53,8 +53,8 @@
  *   })
  */
 
-import { createClient } from '@supabase/supabase-js'
-import type { SupabaseClient } from '@supabase/supabase-js'
+import { createClient } from 'npm:@supabase/supabase-js@^2'
+import type { SupabaseClient } from 'npm:@supabase/supabase-js@^2'
 import type { Database } from '../../../packages/supabase/src/types.ts'
 
 // ─── Admin Client (service role — bypasses RLS) ───────────────────────────────
