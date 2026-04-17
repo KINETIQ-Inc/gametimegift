@@ -73,6 +73,21 @@ function containsKeyword(value: string, keywords: readonly string[]): boolean {
   return keywords.some((keyword) => value.includes(keyword))
 }
 
+function matchesMilitaryCollection(product: ProductListItem): boolean {
+  if (product.license_body === 'ARMY') return true
+
+  const haystack = [
+    product.name,
+    product.sku,
+    product.description ?? '',
+    product.school ?? '',
+  ]
+    .join(' ')
+    .toLowerCase()
+
+  return haystack.includes('naval academy') || haystack.includes('navy')
+}
+
 function getSportFromSku(sku: string | null | undefined): SportFilter | null {
   if (!sku) return null
 
@@ -176,7 +191,11 @@ export function filterProducts(
   sportFilter: SportFilter,
 ): ProductListItem[] {
   return products.filter((product) => {
-    const licenseMatch = licenseFilter === 'ALL' || product.license_body === licenseFilter
+    const licenseMatch =
+      licenseFilter === 'ALL' ||
+      (licenseFilter === 'ARMY'
+        ? matchesMilitaryCollection(product)
+        : product.license_body === licenseFilter)
     const sportMatch =
       sportFilter === 'ALL' ||
       sportFilter === 'FOOTBALL' ||

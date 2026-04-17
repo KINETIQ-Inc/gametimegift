@@ -8,23 +8,21 @@
  *   not-found  — no ?sku= param, or product not in catalog
  *   form       — customer filling in name / email / optional codes
  *   submitting — API calls in flight ("Processing…")
- *   confirmed  — Stripe returned ?gtg_checkout=success ("Order Confirmed")
- *   cancelled  — Stripe returned ?gtg_checkout=cancelled ("Payment not completed")
+ *   confirmed  — Stripe payment confirmed ("Order Confirmed")
+ *   cancelled  — legacy return state from older Checkout Session flow
  *   api-error  — createOrder threw ("Payment failed — retry")
- *
- * SUCCESS RETURN:
- *   buildCheckoutPageSuccessUrl() points Stripe back to this same page
- *   with ?gtg_checkout=success preserved. The page re-mounts, detects the
- *   param, loads the stored session, and renders OrderConfirmation.
  */
 
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import {
   createOrder,
   ensureAnonymousSession,
+  isAuthError,
   resolveConsultantCode,
+  signOut,
   toUserMessage,
 } from '@gtg/api'
+import { getEnv } from '@gtg/config'
 import { AlertBanner, Button, Heading } from '@gtg/ui'
 import {
   clearCheckoutIdempotencyKey,
@@ -45,7 +43,7 @@ import {
   errConsultantNotFound,
 } from '../checkout-copy'
 import { getFeaturedProductArt } from '../config/featured-product-art'
-import { getProductSlug, shortenProductName } from '../product-routing'
+import { shortenProductName } from '../product-routing'
 import { trackStorefrontEvent } from '../analytics'
 import { captureReferralAttribution, clearReferralAttribution } from '../referral-attribution'
 import { useStorefront } from '../contexts/StorefrontContext'
@@ -59,6 +57,110 @@ const OrderConfirmation = lazy(async () =>
 
 const CHECKOUT_REQUEST_TIMEOUT_MS = 10_000
 
+async function createOrderWithSessionRecovery(
+  input: Parameters<typeof createOrder>[0],
+  options: Parameters<typeof createOrder>[1],
+) {
+  try {
+    return await createOrder(input, options)
+  } catch (error) {
+    if (!isAuthError(error)) {
+      throw error
+    }
+
+    await signOut()
+    await ensureAnonymousSession()
+    return createOrder(input, options)
+  }
+}
+
+interface StripeCardChangeEvent {
+  error?: { message?: string }
+}
+
+interface StripeCardElement {
+  mount: (element: HTMLElement | string) => void
+  destroy: () => void
+  on: (event: 'change', handler: (event: StripeCardChangeEvent) => void) => void
+}
+
+interface StripeElements {
+  create: (type: 'card', options?: Record<string, unknown>) => StripeCardElement
+}
+
+interface StripeConfirmCardPaymentResult {
+  paymentIntent?: {
+    id: string
+    status: string
+  }
+  error?: {
+    message?: string
+  }
+}
+
+interface StripeClient {
+  elements: () => StripeElements
+  confirmCardPayment: (
+    clientSecret: string,
+    data: {
+      payment_method: {
+        card: StripeCardElement
+        billing_details: {
+          name: string
+          email: string
+        }
+      }
+    },
+  ) => Promise<StripeConfirmCardPaymentResult>
+}
+
+declare global {
+  interface Window {
+    Stripe?: (publishableKey: string) => StripeClient
+  }
+}
+
+let stripeLoaderPromise: Promise<StripeClient> | null = null
+
+async function loadStripeClient(publishableKey: string): Promise<StripeClient> {
+  if (window.Stripe) {
+    return window.Stripe(publishableKey)
+  }
+
+  if (!stripeLoaderPromise) {
+    stripeLoaderPromise = new Promise<StripeClient>((resolve, reject) => {
+      const existing = document.querySelector<HTMLScriptElement>('script[data-gtg-stripe-js="true"]')
+      if (existing) {
+        existing.addEventListener('load', () => {
+          if (window.Stripe) {
+            resolve(window.Stripe(publishableKey))
+            return
+          }
+          reject(new Error('Stripe.js failed to initialize.'))
+        }, { once: true })
+        existing.addEventListener('error', () => reject(new Error('Stripe.js failed to load.')), { once: true })
+        return
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://js.stripe.com/v3/'
+      script.async = true
+      script.dataset.gtgStripeJs = 'true'
+      script.onload = () => {
+        if (window.Stripe) {
+          resolve(window.Stripe(publishableKey))
+          return
+        }
+        reject(new Error('Stripe.js failed to initialize.'))
+      }
+      script.onerror = () => reject(new Error('Stripe.js failed to load.'))
+      document.head.appendChild(script)
+    })
+  }
+
+  return stripeLoaderPromise
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatCents(cents: number): string {
@@ -67,21 +169,6 @@ function formatCents(cents: number): string {
     currency: 'USD',
     minimumFractionDigits: 2,
   }).format(cents / 100)
-}
-
-function buildCheckoutPageSuccessUrl(sku: string): string {
-  const url = new URL(`${window.location.origin}/checkout`)
-  url.searchParams.set('sku', sku)
-  url.searchParams.set('gtg_checkout', 'success')
-  return url.toString()
-}
-
-function buildCheckoutPageCancelUrl(sku: string, slug: string): string {
-  const url = new URL(`${window.location.origin}/checkout`)
-  url.searchParams.set('sku', sku)
-  url.searchParams.set('gtg_checkout', 'cancelled')
-  url.hash = `product/${encodeURIComponent(sku)}/${slug}`
-  return url.toString()
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -100,6 +187,7 @@ type ErrorKind = 'validation' | 'api'
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function CheckoutPage() {
+  const { stripePublishableKey } = getEnv()
   const params = new URLSearchParams(window.location.search)
   const skuParam = params.get('sku')?.trim().toUpperCase() ?? null
   const bundleParam = params.get('bundle')?.trim().toLowerCase() ?? null
@@ -114,6 +202,7 @@ export function CheckoutPage() {
   const [phase, setPhase] = useState<PagePhase>('loading')
   const [confirmedSession, setConfirmedSession] = useState<StoredCheckoutSession | null>(null)
   const [confirmedOrderId, setConfirmedOrderId] = useState<string | null>(null)
+  const [serverOrderTotalCents, setServerOrderTotalCents] = useState<number | null>(null)
 
   // Form fields
   const [customerName, setCustomerName] = useState('')
@@ -125,10 +214,16 @@ export function CheckoutPage() {
   // Error state
   const [errorMessage, setErrorMessage] = useState('')
   const [errorKind, setErrorKind] = useState<ErrorKind>('validation')
+  const [cardErrorMessage, setCardErrorMessage] = useState('')
+  const [cardReady, setCardReady] = useState(false)
 
   const nameRef = useRef<HTMLInputElement>(null)
+  const cardMountRef = useRef<HTMLDivElement>(null)
   const checkoutAttemptKeyRef = useRef<string | null>(null)
   const submitLockRef = useRef(false)
+  const stripeClientRef = useRef<StripeClient | null>(null)
+  const stripeElementsRef = useRef<StripeElements | null>(null)
+  const stripeCardElementRef = useRef<StripeCardElement | null>(null)
   const product = products.find((candidate) => candidate.sku === skuParam) ?? null
   const isSubmitting = phase === 'submitting'
 
@@ -192,6 +287,55 @@ export function CheckoutPage() {
   }, [phase])
 
   useEffect(() => {
+    if (!cardMountRef.current) return
+    if (phase === 'confirmed' || phase === 'not-found' || phase === 'loading') return
+
+    let cancelled = false
+
+    async function mountCardElement(): Promise<void> {
+      try {
+        const stripe = await loadStripeClient(stripePublishableKey)
+        if (cancelled || !cardMountRef.current) return
+
+        stripeClientRef.current = stripe
+        const elements = stripeElementsRef.current ?? stripe.elements()
+        stripeElementsRef.current = elements
+
+        if (!stripeCardElementRef.current) {
+          const card = elements.create('card', {
+            hidePostalCode: true,
+            style: {
+              base: {
+                color: '#142f5f',
+                fontFamily: 'system-ui, sans-serif',
+                fontSize: '16px',
+                '::placeholder': { color: '#6c7894' },
+              },
+            },
+          })
+          card.on('change', (event) => {
+            setCardErrorMessage(event.error?.message ?? '')
+          })
+          card.mount(cardMountRef.current)
+          stripeCardElementRef.current = card
+          setCardReady(true)
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setCardErrorMessage(error instanceof Error ? error.message : 'Unable to load secure payment fields.')
+          setCardReady(false)
+        }
+      }
+    }
+
+    void mountCardElement()
+
+    return () => {
+      cancelled = true
+    }
+  }, [phase, stripePublishableKey])
+
+  useEffect(() => {
     if (!isSubmitting) {
       return
     }
@@ -245,6 +389,7 @@ export function CheckoutPage() {
       setErrorMessage('')
       setErrorKind('validation')
     }
+    setCardErrorMessage('')
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
@@ -306,8 +451,6 @@ export function CheckoutPage() {
         consultantId = resolved.consultant_id
       }
 
-      const successUrl = buildCheckoutPageSuccessUrl(product.sku)
-      const cancelUrl = buildCheckoutPageCancelUrl(product.sku, getProductSlug(product))
       const attemptKey = checkoutAttemptKeyRef.current ?? loadOrCreateCheckoutIdempotencyKey(product.sku)
       checkoutAttemptKeyRef.current = attemptKey
 
@@ -318,13 +461,11 @@ export function CheckoutPage() {
 
       let result
       try {
-        result = await createOrder({
+        result = await createOrderWithSessionRecovery({
           productId: product.id,
           quantity: 1,
           customerName: trimmedName,
           customerEmail: trimmedEmail,
-          successUrl,
-          cancelUrl,
           idempotencyKey: attemptKey,
           ...(consultantId ? { consultantId } : {}),
           ...(trimmedDiscount ? { discountCode: trimmedDiscount } : {}),
@@ -335,14 +476,45 @@ export function CheckoutPage() {
         window.clearTimeout(checkoutTimeout)
       }
 
-      storeCheckoutSession(result, trimmedName, trimmedEmail, product.retail_price_cents)
+      setServerOrderTotalCents(result.total_cents)
+
+      const stripe = stripeClientRef.current ?? await loadStripeClient(stripePublishableKey)
+      stripeClientRef.current = stripe
+
+      if (!stripeCardElementRef.current) {
+        throw new Error('Secure payment field did not finish loading. Please refresh and try again.')
+      }
+
+      const paymentResult = await stripe.confirmCardPayment(result.client_secret, {
+        payment_method: {
+          card: stripeCardElementRef.current,
+          billing_details: {
+            name: trimmedName,
+            email: trimmedEmail,
+          },
+        },
+      })
+
+      if (paymentResult.error?.message) {
+        throw new Error(paymentResult.error.message)
+      }
+
+      if (!paymentResult.paymentIntent) {
+        throw new Error('Payment confirmation did not complete. Please try again.')
+      }
+
+      storeCheckoutSession(result, trimmedName, trimmedEmail, result.total_cents)
+      const storedSession = loadCheckoutSession()
+      setConfirmedSession(storedSession)
+      setConfirmedOrderId(result.order_id)
+
       trackStorefrontEvent('checkout_redirected', {
         sku: product.sku,
         orderId: result.order_id,
         orderNumber: result.order_number,
+        paymentIntentId: result.payment_intent_id,
       })
-
-      window.location.href = result.session_url
+      setPhase('confirmed')
     } catch (error) {
       submitLockRef.current = false
       const message = toUserMessage(error, ERR_CHECKOUT_FAILED)
@@ -376,7 +548,7 @@ export function CheckoutPage() {
   }
 
   const art = product ? getFeaturedProductArt(product) : null
-  const orderTotal = product ? product.retail_price_cents : 0
+  const orderTotal = serverOrderTotalCents ?? (product ? product.retail_price_cents : 0)
 
   const bundleLabel =
     bundleParam === 'flowers'
@@ -636,16 +808,16 @@ export function CheckoutPage() {
                 <section className="checkout-payment-section" aria-label="Payment step">
                   <div className="checkout-payment-head">
                     <p className="checkout-payment-eyebrow">Payment</p>
-                    <h2 className="checkout-payment-title">Review and continue to secure payment.</h2>
+                    <h2 className="checkout-payment-title">Secure your order with server-verified pricing.</h2>
                     <p className="checkout-payment-copy">
-                      You&apos;ll be redirected to Stripe to complete your purchase with encrypted payment processing.
+                      Pricing and inventory are locked on the server before Stripe confirms your card.
                     </p>
                   </div>
 
                   <div className="checkout-payment-summary">
                     <div className="checkout-payment-line">
-                      <span>Today&apos;s total</span>
-                      <strong>{formatCents(product.retail_price_cents)}</strong>
+                      <span>Secure total</span>
+                      <strong>{formatCents(orderTotal)}</strong>
                     </div>
                     <div className="checkout-payment-line">
                       <span>Shipping</span>
@@ -653,8 +825,21 @@ export function CheckoutPage() {
                     </div>
                   </div>
 
+                  <div className="checkout-field">
+                    <label htmlFor="cp-card">Card details</label>
+                    <div
+                      id="cp-card"
+                      ref={cardMountRef}
+                      className="checkout-card-element"
+                      aria-live="polite"
+                    />
+                    {cardErrorMessage ? (
+                      <p className="checkout-field-hint checkout-field-hint--error">{cardErrorMessage}</p>
+                    ) : null}
+                  </div>
+
                   <div className="checkout-payment-trust" role="list" aria-label="Payment assurances">
-                    <span role="listitem">Stripe-secured checkout</span>
+                    <span role="listitem">Stripe-secured card payment</span>
                     <span role="listitem">Encrypted payment processing</span>
                     <span role="listitem">Receipt sent instantly by email</span>
                   </div>
@@ -664,7 +849,7 @@ export function CheckoutPage() {
                     variant="gold"
                     size="lg"
                     className="checkout-submit"
-                    disabled={isSubmitting || !checkoutEnabled}
+                    disabled={isSubmitting || !checkoutEnabled || !cardReady}
                     aria-busy={isSubmitting}
                   >
                     {isSubmitting ? (
@@ -673,13 +858,13 @@ export function CheckoutPage() {
                         {CHECKOUT_SUBMITTING}
                       </>
                     ) : (
-                      `Continue to Payment — ${formatCents(product.retail_price_cents)}`
+                      `Pay Securely — ${formatCents(orderTotal)}`
                     )}
                   </Button>
                 </section>
 
                 <p className="checkout-stripe-note">
-                  Payment processed by Stripe. Your card details are never stored by Game Time Gift.
+                  Payment processed by Stripe. Game Time Gift never calculates or stores your card data in the browser.
                 </p>
               </form>
             </main>
