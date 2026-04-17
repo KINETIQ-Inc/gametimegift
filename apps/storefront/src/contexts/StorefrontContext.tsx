@@ -23,6 +23,7 @@ import {
   type ReactNode,
 } from 'react'
 import {
+  getClient,
   listProducts,
   type ProductListItem,
 } from '@gtg/api'
@@ -63,6 +64,17 @@ export type { LicenseFilter, SportFilter } from '../product-routing'
 
 const CART_STORAGE_KEY = 'gtg-storefront-cart-v1'
 
+type DirectStorefrontProductRow = {
+  id: string
+  sku: string
+  name: string
+  school: string | null
+  sport: string | null
+  license_body: 'CLC' | 'ARMY' | 'NONE'
+  retail_price_cents: number
+  created_at: string
+}
+
 function loadStoredCart(): CartEntry[] {
   if (typeof window === 'undefined') return []
   try {
@@ -91,12 +103,40 @@ function saveStoredCart(cart: CartEntry[]): void {
   window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart))
 }
 
+async function loadCatalogDirectly(): Promise<ProductListItem[]> {
+  const client = getClient()
+  const { data, error } = await client
+    .from('products')
+    .select('id, sku, name, school, sport, license_body:license_type, retail_price_cents:price, created_at')
+    .eq('active', true)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    throw error
+  }
+
+  return ((data ?? []) as DirectStorefrontProductRow[]).map((product) => ({
+    id: product.id,
+    sku: product.sku,
+    name: product.name,
+    description: product.sport ? `${product.sport} collectible` : null,
+    school: product.school,
+    license_body: product.license_body,
+    retail_price_cents: product.retail_price_cents,
+    available_count: 1,
+    in_stock: true,
+    created_at: product.created_at,
+    updated_at: product.created_at,
+  }))
+}
+
 // ── Context shape ────────────────────────────────────────────
 
 export interface StorefrontContextValue {
   // Product catalog
   products: ProductListItem[]
   loading: boolean
+  error: Error | null
   sessionReady: boolean
   checkoutEnabled: boolean
 
@@ -146,6 +186,7 @@ export function StorefrontProvider({ children }: { children: ReactNode }) {
   // ── Catalog ──
   const [products, setProducts] = useState<ProductListItem[]>([])
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<Error | null>(null)
 
   // ── Filters ──
   const [licenseFilter, setLicenseFilter] = useState<string>('ALL')
@@ -174,16 +215,37 @@ export function StorefrontProvider({ children }: { children: ReactNode }) {
 
     async function load(): Promise<void> {
       setLoading(true)
+      setError(null)
       try {
         const result = await listProducts({ limit: 120, offset: 0 })
         if (result.products.length > 0) {
           setProducts(result.products)
           return
         }
+        const directProducts = await loadCatalogDirectly()
+        if (directProducts.length > 0) {
+          setProducts(directProducts)
+          return
+        }
         if (appEnv !== 'production') {
           setProducts(DEV_MOCK_STOREFRONT_PRODUCTS)
         }
-      } catch {
+      } catch (err) {
+        try {
+          const directProducts = await loadCatalogDirectly()
+          if (directProducts.length > 0) {
+            setProducts(directProducts)
+            return
+          }
+        } catch (directErr) {
+          setError(
+            directErr instanceof Error
+              ? directErr
+              : err instanceof Error
+                ? err
+                : new Error('Failed to load products'),
+          )
+        }
         if (appEnv !== 'production') {
           setProducts(DEV_MOCK_STOREFRONT_PRODUCTS)
         }
@@ -193,7 +255,7 @@ export function StorefrontProvider({ children }: { children: ReactNode }) {
     }
 
     void load()
-  }, [appEnv])
+  }, [])
 
   // ── Persist cart ──────────────────────────────────────────
   useEffect(() => {
@@ -264,6 +326,7 @@ export function StorefrontProvider({ children }: { children: ReactNode }) {
   const value: StorefrontContextValue = {
     products,
     loading,
+    error,
     sessionReady,
     checkoutEnabled: sessionReady,
     licenseFilter,
