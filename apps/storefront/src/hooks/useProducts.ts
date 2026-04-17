@@ -44,7 +44,7 @@ export function useProducts() {
         const { data, error: queryError } = await client
           .from('products')
           .select('id, sku, name, description, school, license_body, retail_price_cents, created_at, updated_at')
-          .eq('is_active', true)
+          .eq('active', true)
           .order('created_at', { ascending: false })
 
         if (queryError) {

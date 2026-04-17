@@ -7,9 +7,9 @@
  *
  * ─── Authorization ────────────────────────────────────────────────────────────
  *
- * Any authenticated user (consultant, admin). RLS on products enforces that
- * non-admin callers see only is_active = true products — the storefront never
- * surfaces inactive products to consultants or customers.
+ * Any authenticated user (consultant, admin). Active products are filtered
+ * via explicit .eq('active', true) — the products table uses the `active`
+ * column. The storefront never surfaces inactive products.
  *
  * ─── License-based filtering ──────────────────────────────────────────────────
  *
@@ -227,7 +227,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     // ── Step 5: Build and execute product query ─────────────────────────────────
     //
-    // Uses userClient so RLS applies: non-admin callers see only is_active = true.
+    // Explicit .eq('active', true) filter — the products table uses `active`
+    // (not `is_active`). RLS policies referencing is_active are broken against
+    // this schema; the explicit filter is the authoritative guard here.
     // cost_cents and created_by are excluded — internal fields not for storefront.
 
     authedLog.info('Querying products', {
@@ -244,6 +246,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         'id, sku, name, description, school, license_body, retail_price_cents, created_at, updated_at',
         { count: 'exact' },
       )
+      .eq('active', true)
       .order('name', { ascending: true })
       .range(offset, offset + limit - 1)
 

@@ -55,7 +55,7 @@ export interface ProductRecord {
   royalty_rate: number | null
   cost_cents: number
   retail_price_cents: number
-  is_active: boolean
+  active: boolean
   created_at: string
   updated_at: string
   created_by: string
@@ -70,7 +70,7 @@ export interface UpdateProductInput {
   royalty_rate?: number | null
   cost_cents?: number
   retail_price_cents?: number
-  is_active?: boolean
+  active?: boolean
 }
 
 export interface AssignProductLicenseInput {
@@ -143,7 +143,7 @@ export async function updateProduct(input: UpdateProductInput): Promise<ProductR
 }
 
 export async function deactivateProduct(productId: string): Promise<ProductRecord> {
-  return updateProduct({ product_id: productId, is_active: false })
+  return updateProduct({ product_id: productId, active: false })
 }
 
 export async function assignProductLicense(

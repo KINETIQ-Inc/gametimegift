@@ -127,7 +127,7 @@ interface ProductRow {
   description:        string | null
   license_body:       string
   retail_price_cents: number
-  is_active:          boolean
+  active:          boolean
 }
 
 interface ConsultantRow {
@@ -314,13 +314,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     // ── Step 5: Verify product exists and is active ──────────────────────────────
     //
-    // Use userClient so RLS applies — non-admin users see only is_active = true.
-    // A 404 from userClient means either not found or inactive.
+    // Explicit .eq('active', true) — products table uses `active`, not `is_active`.
+    // A 404 from this query means not found or inactive.
 
     const { data: productData, error: productError } = await userClient
       .from('products')
-      .select('id, sku, name, description, license_body, retail_price_cents, is_active')
+      .select('id, sku, name, description, license_body, retail_price_cents, active')
       .eq('id', body.product_id)
+      .eq('active', true)
       .single()
 
     if (productError !== null || productData === null) {
