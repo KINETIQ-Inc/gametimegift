@@ -23,26 +23,21 @@ import {
   useEffect,
   useState,
 } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Badge, Button, Heading } from '@gtg/ui'
 import { type ProductListItem } from '@gtg/api'
 import { formatUsdCents } from '@gtg/utils'
-import { trackStorefrontEvent } from '../analytics'
 import { useStorefront } from '../contexts/StorefrontContext'
 import { ConsultantAttributionBanner } from '../components/referral/ConsultantAttributionBanner'
 import { MegaNav } from '../components/mega-nav/MegaNav'
 import { SiteNav } from '../components/nav/SiteNav'
-import { ProductGrid } from '../components/ProductGrid'
 import {
   filterProducts,
-  getProductPath,
-  getSportFromProduct,
   shortenProductName,
   type LicenseFilter,
   type SportFilter,
 } from '../product-routing'
 import type { NavTabId } from '../config/mega-nav'
-import { getFeaturedProductArt } from '../config/featured-product-art'
 import footballArt from '../assets/football.png'
 import soccerArt from '../assets/soccer.png'
 import basketballArt from '../assets/basketball.png'
@@ -55,11 +50,6 @@ import selectorBaseballArt from '../assets/selector_baseball.png'
 import selectorHockeyArt from '../assets/selector_hockey.png'
 import gameTimeGiftLogo from '../assets/game_time_gift.png'
 import floralArrangement from '../assets/floral_arrangement.png'
-import { ProductCard as UiProductCard } from '@gtg/ui'
-
-const FeaturedCarousel = lazy(async () =>
-  import('../components/FeaturedCarousel').then((m) => ({ default: m.FeaturedCarousel })),
-)
 const StorefrontFooter = lazy(async () =>
   import('../components/footer/StorefrontFooter').then((m) => ({ default: m.StorefrontFooter })),
 )
@@ -79,27 +69,6 @@ const SPORT_SELECTOR_ITEMS = [
   { sport: 'BASEBALL' as const, label: 'Baseball', art: selectorBaseballArt },
   { sport: 'HOCKEY' as const, label: 'Hockey', art: selectorHockeyArt },
 ] as const
-
-// ── Helpers ───────────────────────────────────────────────────
-
-function getSportArtForProduct(product: ProductListItem): string | null {
-  const featuredArt = getFeaturedProductArt(product)
-  if (featuredArt) return featuredArt.assetPath
-
-  switch (getSportFromProduct(product)) {
-    case 'FOOTBALL': return footballArt
-    case 'BASKETBALL': return basketballArt
-    case 'SOCCER': return soccerArt
-    case 'BASEBALL': return baseballArt
-    case 'HOCKEY': return hockeyArt
-    default: return null
-  }
-}
-
-function sportLabel(filter: SportFilter): string {
-  if (filter === 'ALL') return 'Gift Collection'
-  return `Signature ${filter.charAt(0)}${filter.slice(1).toLowerCase()} Gifts`
-}
 
 function scrollToId(id: string): void {
   const target = document.getElementById(id)
@@ -200,6 +169,7 @@ function GiftFlowPanel({
 // ── HomePage ──────────────────────────────────────────────────
 
 export function HomePage() {
+  const navigate = useNavigate()
   const {
     products,
     loading,
@@ -221,11 +191,26 @@ export function HomePage() {
   )
   const deferredProducts = useDeferredValue(filteredProducts)
 
+  function navigateToShop(nextSport: SportFilter, nextLicense: LicenseFilter): void {
+    const params = new URLSearchParams()
+    if (nextSport !== 'ALL') {
+      params.set('sport', nextSport)
+    }
+    if (nextLicense !== 'ALL') {
+      params.set('license', nextLicense)
+    }
+
+    navigate({
+      pathname: '/shop',
+      search: params.toString() ? `?${params.toString()}` : '',
+    })
+  }
+
   function handleSportSelect(sport: SportFilter) {
     startTransition(() => {
       setSportFilter(sport)
     })
-    scrollToId('catalog')
+    navigateToShop(sport, licenseFilter as LicenseFilter)
   }
 
   function handleLeagueSelect(tabId: NavTabId) {
@@ -257,7 +242,7 @@ export function HomePage() {
       setLicenseFilter(nextFilters.license)
       setSportFilter(nextFilters.sport)
     })
-    scrollToId('catalog')
+    navigateToShop(nextFilters.sport, nextFilters.license)
   }
 
   return (
@@ -394,10 +379,6 @@ export function HomePage() {
             </section>
           </div>
 
-        <div className="home-band-inner">
-          <ProductGrid />
-        </div>
-
         {/* ── 7. Sport selector ── */}
         <div className="home-band-inner">
           <section id="sport-selector" className="sport-selector-section" aria-label="Shop by sport">
@@ -434,90 +415,6 @@ export function HomePage() {
                 </button>
               ))}
             </div>
-          </section>
-        </div>
-
-        {/* ── 8. Catalog — featured carousel + product grid ── */}
-        <div className="home-band-inner">
-          <section id="catalog" className="catalog-surface">
-            <div className="catalog-head">
-              <Heading as="h2" display={false}>{sportLabel(sportFilter as SportFilter)}</Heading>
-              <span>{loading ? 'Loading...' : `${deferredProducts.length} items`}</span>
-            </div>
-
-            <Suspense fallback={<DeferredSectionFallback minHeight={360} />}>
-              <FeaturedCarousel
-                products={deferredProducts}
-                loading={loading}
-                formatCurrency={formatUsdCents}
-                getProductHref={getProductPath}
-              />
-            </Suspense>
-
-            {deferredProducts.length > 0 ? (
-              <div className="product-grid">
-                {deferredProducts.map((product) => (
-                  <UiProductCard
-                    key={product.id}
-                    name={shortenProductName(product.name)}
-                    priceCents={product.retail_price_cents}
-                    imageUrl={getSportArtForProduct(product) ?? gameTimeGiftLogo}
-                    imageAlt={product.name}
-                    imageWrapClassName="product-card-visual"
-                    imageClassName={
-                      getSportArtForProduct(product)
-                        ? 'product-card-sport-art'
-                        : 'product-card-sport-art product-card-logo-fallback'
-                    }
-                    actionLabel="Add to Cart"
-                    href={getProductPath(product)}
-                    ariaLabel={`${shortenProductName(product.name)} — ${formatUsdCents(product.retail_price_cents)}`}
-                    onClick={() =>
-                      trackStorefrontEvent('product_selected', {
-                        sku: product.sku,
-                        licenseBody: product.license_body,
-                        priceCents: product.retail_price_cents,
-                      })
-                    }
-                  />
-                ))}
-              </div>
-            ) : (
-              <section className="product-types" aria-label="Shop by product type">
-                {[
-                  {
-                    title: 'Football Gift Sets',
-                    description:
-                      'Curated football-themed gifts built for game rooms, offices, and milestone moments.',
-                    highlight: 'Best Seller',
-                  },
-                  {
-                    title: 'Campus Collectibles',
-                    description:
-                      'Display-ready keepsakes that bring licensed team pride into shelves, mantels, and desks.',
-                    highlight: 'Licensed',
-                  },
-                  {
-                    title: 'Alumni Gifts',
-                    description:
-                      'Polished graduation, legacy, and donor-style pieces designed for lifelong school pride.',
-                    highlight: 'Legacy',
-                  },
-                  {
-                    title: 'Home & Bar Gifts',
-                    description: 'Vases, frames, and conversation pieces for the fan who entertains.',
-                    highlight: 'Home',
-                  },
-                ].map((card) => (
-                  <article key={card.title} className="product-type-card">
-                    <Badge variant="occasion">{card.highlight}</Badge>
-                    <Heading as="h3" display={false}>{card.title}</Heading>
-                    <p>{card.description}</p>
-                    <a href="#catalog" className="product-type-link">Explore</a>
-                  </article>
-                ))}
-              </section>
-            )}
           </section>
         </div>
 
