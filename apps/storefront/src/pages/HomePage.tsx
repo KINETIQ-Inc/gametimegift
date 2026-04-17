@@ -71,6 +71,7 @@ const SPORT_SELECTOR_ITEMS = [
 
 const ARMY_VASE_FEATURE_ART =
   'https://gametimegift.com/assets/products/united-states-army.png?v=2026-03-31'
+const ARMY_VASE_CHECKOUT_PATH = '/checkout?sku=GTG-ARMY-FB-001'
 
 function scrollToId(id: string): void {
   const target = document.getElementById(id)
@@ -367,7 +368,7 @@ export function HomePage() {
                   and display long after the ceremony is over.
                 </p>
                 <div className="hero-actions">
-                  <Link to="/shop?license=ARMY" className="gtg-btn gtg-btn--gold gtg-btn--lg hero-primary-cta">
+                  <Link to={ARMY_VASE_CHECKOUT_PATH} className="gtg-btn gtg-btn--gold gtg-btn--lg hero-primary-cta">
                     Order Today
                   </Link>
                 </div>
@@ -381,7 +382,7 @@ export function HomePage() {
                     <span className="gift-positioning-spotlight-label">Army Graduation Spotlight</span>
                     <strong>Giving them their flowers, the right way.</strong>
                     <span>Built for West Point families looking for an Army gift that feels personal, elevated, and lasting.</span>
-                    <Link to="/shop?license=ARMY" className="gtg-btn gtg-btn--gold hero-primary-cta">
+                    <Link to={ARMY_VASE_CHECKOUT_PATH} className="gtg-btn gtg-btn--gold hero-primary-cta">
                       Order Today
                     </Link>
                   </div>
