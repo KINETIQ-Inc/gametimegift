@@ -71,7 +71,7 @@ const SPORT_SELECTOR_ITEMS = [
 
 const ARMY_VASE_FEATURE_ART =
   'https://gametimegift.com/assets/products/united-states-army.png?v=2026-03-31'
-const ARMY_VASE_CHECKOUT_PATH = '/checkout?sku=GTG-ARMY-FB-001'
+const ARMY_VASE_CHECKOUT_PATH = '/checkout?sku=GTG-UNITED-STATES-ARMY-FB-001'
 
 function scrollToId(id: string): void {
   const target = document.getElementById(id)
