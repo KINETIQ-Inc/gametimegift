@@ -134,3 +134,25 @@ export function createUserClient(req: Request): SupabaseClient<Database> {
     },
   })
 }
+
+// ─── getUserFromRequest ───────────────────────────────────────────────────────
+
+/**
+ * Authenticate the caller by extracting the bearer token from the Authorization
+ * header and passing it explicitly to auth.getUser(token).
+ *
+ * Supabase JS v2 with persistSession:false has no internal session state, so
+ * calling auth.getUser() without a token hits the auth endpoint anonymously and
+ * returns an HTML error page instead of JSON. Passing the token explicitly is
+ * the required pattern for stateless Edge Function auth.
+ *
+ * @example
+ *   const { data: { user }, error } = await getUserFromRequest(req)
+ *   if (error || !user) return unauthorized(req)
+ */
+export async function getUserFromRequest(req: Request) {
+  const authHeader = req.headers.get('authorization') ?? ''
+  const token = authHeader.replace(/^bearer\s+/i, '').trim()
+  const userClient = createUserClient(req)
+  return userClient.auth.getUser(token || undefined)
+}

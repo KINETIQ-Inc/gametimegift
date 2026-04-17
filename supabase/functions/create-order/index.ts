@@ -2,7 +2,7 @@ import Stripe from 'npm:stripe'
 import { handleCors } from '../_shared/cors.ts'
 import { createLogger } from '../_shared/logger.ts'
 import { jsonError, jsonResponse, unauthorized } from '../_shared/response.ts'
-import { createAdminClient, createUserClient } from '../_shared/supabase.ts'
+import { createAdminClient, getUserFromRequest } from '../_shared/supabase.ts'
 import { cleanupFailedCheckoutAttempt } from '../create-checkout-session/cleanup.ts'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -112,8 +112,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (preflight) return preflight
 
   try {
-    const userClient = createUserClient(req)
-    const { data: { user }, error: authError } = await userClient.auth.getUser()
+    const { data: { user }, error: authError } = await getUserFromRequest(req)
 
     if (authError || !user) {
       log.warn('Authentication failed', { error: authError?.message })
