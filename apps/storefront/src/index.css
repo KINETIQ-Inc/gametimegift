@@ -4152,6 +4152,21 @@ input {
   background: var(--color-surface-1);
 }
 
+.checkout-card-element {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.5px solid var(--color-ink-100);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-0);
+  cursor: text;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.checkout-card-element:focus-within {
+  border-color: rgba(142, 118, 92, 0.7);
+  box-shadow: 0 0 0 3px rgba(197, 168, 132, 0.18);
+}
+
 .checkout-field-hint {
   font-size: 0.8125rem;
   color: var(--color-ink-300);
