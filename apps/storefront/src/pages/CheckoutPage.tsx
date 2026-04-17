@@ -429,6 +429,11 @@ export function CheckoutPage() {
     })
 
     try {
+      await ensureAnonymousSession().catch(() => {
+        // Best effort — proceed even if anon session fails; edge function
+        // handles missing auth via GTG_SERVICE_ACCOUNT_ID fallback.
+      })
+
       let consultantId: string | undefined
 
       if (trimmedCode) {

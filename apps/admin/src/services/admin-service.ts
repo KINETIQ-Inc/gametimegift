@@ -77,7 +77,7 @@ export async function updateProductFromForm(form: EditFormState): Promise<void> 
     royalty_rate: form.royaltyRate.trim() ? Number(form.royaltyRate.trim()) : null,
     cost_cents: form.costCents.trim() ? Number(form.costCents) : undefined,
     retail_price_cents: form.retailPriceCents.trim() ? Number(form.retailPriceCents) : undefined,
-    is_active: form.isActive,
+    active: form.isActive,
   })
 }
 
