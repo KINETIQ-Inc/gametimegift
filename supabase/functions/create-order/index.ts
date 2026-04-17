@@ -112,15 +112,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (preflight) return preflight
 
   try {
-    const { data: { user }, error: authError } = await getUserFromRequest(req)
-
-    if (authError || !user) {
-      log.warn('Authentication failed', { error: authError?.message })
-      return unauthorized(req)
-    }
-
-    const authedLog = log.withUser(user.id)
-
     let body: RequestBody
     try {
       body = await req.json() as RequestBody
@@ -150,6 +141,35 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (body.consultant_id !== undefined && !UUID_RE.test(body.consultant_id)) {
       return jsonError(req, 'consultant_id must be a valid UUID when provided.', 400)
     }
+
+    const authHeader = req.headers.get('authorization') ?? '(none)'
+    const tokenPreview = authHeader.length > 20 ? authHeader.slice(0, 20) + '...' : authHeader
+    log.info('Auth header received', {
+      token_preview: tokenPreview,
+      has_bearer: authHeader.toLowerCase().startsWith('bearer '),
+      consultant_assisted: !!body.consultant_id,
+    })
+
+    const { data: { user }, error: authError } = await getUserFromRequest(req)
+    const authenticatedUserId = authError || !user ? null : user.id
+    const serviceAccountId = Deno.env.get('GTG_SERVICE_ACCOUNT_ID')
+
+    if (body.consultant_id && !authenticatedUserId) {
+      log.warn('Authentication required for consultant-assisted checkout', { error: authError?.message })
+      return unauthorized(req)
+    }
+
+    if (!authenticatedUserId && !serviceAccountId) {
+      log.error('GTG_SERVICE_ACCOUNT_ID not configured for guest checkout')
+      return jsonError(req, 'Internal server error', 500)
+    }
+
+    const actorUserId = authenticatedUserId ?? serviceAccountId!
+    const authedLog = log.withUser(actorUserId)
+    authedLog.info('Checkout actor resolved', {
+      guest_checkout: !authenticatedUserId,
+      consultant_assisted: !!body.consultant_id,
+    })
 
     const stripeKey = Deno.env.get('STRIPE_SECRET_KEY')
     if (!stripeKey) {
@@ -267,7 +287,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     const { data: reserveRows, error: reserveError } = await admin.rpc('reserve_unit', {
       p_product_id: body.product_id,
-      p_reserved_by: user.id,
+      p_reserved_by: actorUserId,
     })
 
     if (reserveError) {
@@ -286,7 +306,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
 
     const totalCents = product.retail_price_cents
-    const customerId = channel === 'storefront_direct' ? user.id : null
+    const customerId = channel === 'storefront_direct' ? authenticatedUserId : null
     const placeholderShippingAddress = {
       name: customerName,
       line1: '',
@@ -342,7 +362,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         admin,
         unitId: unit.unit_id,
         orderId: order.id,
-        releasedBy: user.id,
+        releasedBy: actorUserId,
         log: authedLog,
         context: { stage: 'attach_reserved_unit', idempotency_key: idempotencyKey },
       })
@@ -364,7 +384,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
           customer_name: customerName,
           consultant_id: body.consultant_id ?? '',
           channel,
-          user_id: user.id,
+          user_id: authenticatedUserId ?? '',
           idempotency_key: idempotencyKey,
         },
       }, {
@@ -375,7 +395,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         admin,
         unitId: unit.unit_id,
         orderId: order.id,
-        releasedBy: user.id,
+        releasedBy: actorUserId,
         log: authedLog,
         context: { stage: 'stripe_payment_intent_create', idempotency_key: idempotencyKey },
       })
@@ -395,7 +415,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         admin,
         unitId: unit.unit_id,
         orderId: order.id,
-        releasedBy: user.id,
+        releasedBy: actorUserId,
         log: authedLog,
         context: { stage: 'missing_client_secret', idempotency_key: idempotencyKey },
       })
@@ -433,7 +453,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         admin,
         unitId: unit.unit_id,
         orderId: order.id,
-        releasedBy: user.id,
+        releasedBy: actorUserId,
         log: authedLog,
         context: { stage: 'persist_payment_intent', idempotency_key: idempotencyKey },
       })

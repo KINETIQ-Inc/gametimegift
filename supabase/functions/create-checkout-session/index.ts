@@ -92,7 +92,7 @@
 import { handleCors, isAllowedOrigin } from '../_shared/cors.ts'
 import { createLogger } from '../_shared/logger.ts'
 import { jsonError, jsonResponse, unauthorized } from '../_shared/response.ts'
-import { createAdminClient, createUserClient } from '../_shared/supabase.ts'
+import { createAdminClient, getUserFromRequest } from '../_shared/supabase.ts'
 import { cleanupFailedCheckoutAttempt } from './cleanup.ts'
 import {
   isActiveIdempotencyWindow,
@@ -234,20 +234,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (preflight) return preflight
 
   try {
-    // ── Step 3: Authenticate ────────────────────────────────────────────────────
-
-    const userClient = createUserClient(req)
-    const { data: { user }, error: authError } = await userClient.auth.getUser()
-
-    if (authError !== null || user === null) {
-      log.warn('Authentication failed', { error: authError?.message })
-      return unauthorized(req)
-    }
-
-    const authedLog = log.withUser(user.id)
-    authedLog.info('Authenticated')
-
-    // ── Step 4: Parse and validate request body ─────────────────────────────────
+    // ── Step 3: Parse and validate request body ─────────────────────────────────
 
     let body: RequestBody
     try {
@@ -297,6 +284,29 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (cancelUrlError) {
       return jsonError(req, cancelUrlError, 400)
     }
+
+    // ── Step 4: Authenticate only when needed ──────────────────────────────────
+
+    const { data: { user }, error: authError } = await getUserFromRequest(req)
+    const authenticatedUserId = authError !== null || user === null ? null : user.id
+    const serviceAccountId = Deno.env.get('GTG_SERVICE_ACCOUNT_ID')
+
+    if (body.consultant_id && !authenticatedUserId) {
+      log.warn('Authentication required for consultant-assisted checkout', { error: authError?.message })
+      return unauthorized(req)
+    }
+
+    if (!authenticatedUserId && !serviceAccountId) {
+      log.error('GTG_SERVICE_ACCOUNT_ID not configured for guest checkout')
+      return jsonError(req, 'Internal server error', 500)
+    }
+
+    const actorUserId = authenticatedUserId ?? serviceAccountId!
+    const authedLog = log.withUser(actorUserId)
+    authedLog.info('Checkout actor resolved', {
+      guest_checkout: !authenticatedUserId,
+      consultant_assisted: !!body.consultant_id,
+    })
 
     const stripeKey = Deno.env.get('STRIPE_SECRET_KEY')
     if (!stripeKey) {
@@ -487,7 +497,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       'reserve_unit',
       {
         p_product_id:  body.product_id,
-        p_reserved_by: user.id,
+        p_reserved_by: actorUserId,
       },
     )
 
@@ -525,7 +535,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       return jsonError(req, 'Internal server error', 500)
     }
 
-    const customerId = channel === 'storefront_direct' ? user.id : null
+    const customerId = channel === 'storefront_direct' ? authenticatedUserId : null
     const placeholderShippingAddress = {
       name: customerName,
       line1: '',
@@ -626,9 +636,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
         },
 
         // Metadata available in the webhook (5B-2) for order creation.
-        // user_id is the auth.users.id of the caller:
+        // user_id is the auth.users.id of the caller when available:
         //   storefront_direct → the customer's auth user (used as orders.customer_id)
         //   consultant_assisted → the consultant's auth user (NOT stored as customer_id)
+        //   guest checkout     → empty string (customer tracked by order email/name)
         metadata: {
           order_id:       order.id,
           order_number:   order.order_number,
@@ -637,7 +648,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
           customer_name:  customerName,
           consultant_id:  body.consultant_id ?? '',
           channel,
-          user_id:        user.id,
+          user_id:        authenticatedUserId ?? '',
           idempotency_key: idempotencyKey,
         },
 
@@ -651,7 +662,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         admin,
         unitId: unit.unit_id,
         orderId: order.id,
-        releasedBy: user.id,
+        releasedBy: actorUserId,
         log: authedLog,
         context: {
           stage: 'stripe_session_create',
@@ -690,7 +701,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         admin,
         unitId: unit.unit_id,
         orderId: order.id,
-        releasedBy: user.id,
+        releasedBy: actorUserId,
         log: authedLog,
         context: {
           stage: 'missing_session_url',
@@ -718,7 +729,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         admin,
         unitId: unit.unit_id,
         orderId: order.id,
-        releasedBy: user.id,
+        releasedBy: actorUserId,
         log: authedLog,
         context: {
           stage: 'persist_idempotency_record',
