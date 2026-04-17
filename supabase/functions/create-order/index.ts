@@ -23,7 +23,6 @@ interface ProductRow {
   id: string
   sku: string
   name: string
-  description: string | null
   license_body: string
   retail_price_cents: number
   active: boolean
@@ -166,9 +165,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const customerEmail = body.customer_email.trim().toLowerCase()
     const idempotencyKey = body.idempotency_key.trim()
 
-    const { data: productData, error: productError } = await userClient
+    const { data: productData, error: productError } = await admin
       .from('products')
-      .select('id, sku, name, description, license_body, retail_price_cents, active')
+      .select('id, sku, name, license_body:license_type, retail_price_cents:price, active')
       .eq('id', body.product_id)
       .eq('active', true)
       .single()

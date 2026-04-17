@@ -124,7 +124,6 @@ interface ProductRow {
   id:                 string
   sku:                string
   name:               string
-  description:        string | null
   license_body:       string
   retail_price_cents: number
   active:          boolean
@@ -317,9 +316,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
     // Explicit .eq('active', true) — products table uses `active`, not `is_active`.
     // A 404 from this query means not found or inactive.
 
-    const { data: productData, error: productError } = await userClient
+    const { data: productData, error: productError } = await admin
       .from('products')
-      .select('id, sku, name, description, license_body, retail_price_cents, active')
+      .select('id, sku, name, license_body:license_type, retail_price_cents:price, active')
       .eq('id', body.product_id)
       .eq('active', true)
       .single()

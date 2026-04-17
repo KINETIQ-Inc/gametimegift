@@ -19,12 +19,10 @@ interface ProductRow {
   id: string
   sku: string
   name: string
-  description: string | null
   school: string | null
   license_body: ProductLicenseBody
   retail_price_cents: number
   created_at: string
-  updated_at: string
 }
 
 export function useProducts() {
@@ -43,7 +41,7 @@ export function useProducts() {
         const client = getClient()
         const { data, error: queryError } = await client
           .from('products')
-          .select('id, sku, name, description, school, license_body, retail_price_cents, created_at, updated_at')
+          .select('id, sku, name, school, license_body:license_type, retail_price_cents:price, created_at')
           .eq('active', true)
           .order('created_at', { ascending: false })
 
@@ -51,7 +49,11 @@ export function useProducts() {
           throw queryError
         }
 
-        const nextProducts = (data ?? []) as ProductRow[]
+        const nextProducts = ((data ?? []) as ProductRow[]).map((product) => ({
+          ...product,
+          description: null,
+          updated_at: product.created_at,
+        }))
 
         if (!cancelled) {
           setProducts(nextProducts)

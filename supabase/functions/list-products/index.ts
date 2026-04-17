@@ -115,12 +115,10 @@ interface ProductRow {
   id:                 string
   sku:                string
   name:               string
-  description:        string | null
   school:             string | null
   license_body:       string
   retail_price_cents: number
   created_at:         string
-  updated_at:         string
 }
 
 interface CountRow {
@@ -240,10 +238,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
       offset,
     })
 
-    let productQuery = userClient
+    let productQuery = createAdminClient()
       .from('products')
       .select(
-        'id, sku, name, description, school, license_body, retail_price_cents, created_at, updated_at',
+        'id, sku, name, school, license_body:license_type, retail_price_cents:price, created_at',
         { count: 'exact' },
       )
       .eq('active', true)
@@ -253,8 +251,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (body.license_body !== undefined) {
       const bodies = toArray(body.license_body as string | string[])
       productQuery = bodies.length === 1
-        ? productQuery.eq('license_body', bodies[0])
-        : productQuery.in('license_body', bodies)
+        ? productQuery.eq('license_type', bodies[0])
+        : productQuery.in('license_type', bodies)
     }
 
     if (body.search !== undefined) {
@@ -309,14 +307,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
         id:                 product.id,
         sku:                product.sku,
         name:               product.name,
-        description:        product.description,
+        description:        null,
         school:             product.school,
         license_body:       product.license_body,
         retail_price_cents: product.retail_price_cents,
         available_count:    availableCount,
         in_stock:           availableCount > 0,
         created_at:         product.created_at,
-        updated_at:         product.updated_at,
+        updated_at:         product.created_at,
       }
     })
 
