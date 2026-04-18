@@ -4482,7 +4482,7 @@ input {
     radial-gradient(circle at top right, rgba(223, 232, 245, 0.72), rgba(223, 232, 245, 0) 24%),
     var(--color-surface-0);
   border-radius: var(--radius-2xl);
-  padding: 44px 40px 36px;
+  padding: 28px 40px 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -4494,13 +4494,13 @@ input {
 }
 
 .confirmation-seal {
-  font-size: 2rem;
+  font-size: 1.4rem;
   color: var(--color-gold-500);
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 
 .confirmation-eyebrow {
-  margin: 0 0 0.35rem;
+  margin: 0 0 0.2rem;
   font-size: 0.74rem;
   font-weight: 800;
   letter-spacing: 0.16em;
@@ -4510,29 +4510,29 @@ input {
 
 .confirmation-title {
   font-family: var(--font-display);
-  font-size: clamp(2rem, 3vw, 2.4rem);
+  font-size: clamp(1.5rem, 3vw, 1.8rem);
   font-weight: 700;
   color: var(--color-ink-900);
-  margin: 0 0 18px;
+  margin: 0 0 10px;
 }
 
 .confirmation-hero {
   display: grid;
-  gap: 0.45rem;
+  gap: 0.3rem;
   justify-items: center;
-  margin-bottom: 1.6rem;
+  margin-bottom: 1rem;
 }
 
 .confirmation-product-name {
   font-family: var(--font-body);
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 800;
   color: #16213a;
   margin: 0;
 }
 
 .confirmation-product-price {
-  font-size: 1.9rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: var(--color-navy-900);
   font-family: var(--font-display);
@@ -4543,8 +4543,8 @@ input {
   margin: 0;
   max-width: 46ch;
   color: #617086;
-  font-size: 0.97rem;
-  line-height: 1.65;
+  font-size: 0.88rem;
+  line-height: 1.5;
 }
 
 /* Details table */
@@ -4554,7 +4554,7 @@ input {
   border: 1px solid rgba(212, 220, 232, 0.96);
   border-radius: 1.15rem;
   padding: 0;
-  margin: 0 0 1.1rem;
+  margin: 0 0 0.7rem;
   overflow: hidden;
 }
 
@@ -4616,8 +4616,8 @@ input {
 
 .confirmation-next-steps {
   width: 100%;
-  margin: 0 0 1.2rem;
-  padding: 1rem 1.05rem;
+  margin: 0 0 0.75rem;
+  padding: 0.65rem 1.05rem;
   border-radius: 1.1rem;
   border: 1px solid rgba(212, 220, 232, 0.96);
   background:
@@ -4627,7 +4627,7 @@ input {
 }
 
 .confirmation-next-steps__eyebrow {
-  margin: 0 0 0.6rem;
+  margin: 0 0 0.35rem;
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.15em;
@@ -4656,7 +4656,7 @@ input {
   color: var(--color-ink-300);
   flex-wrap: wrap;
   justify-content: center;
-  padding-top: 20px;
+  padding-top: 12px;
   border-top: 1px solid var(--color-ink-100);
   width: 100%;
 }

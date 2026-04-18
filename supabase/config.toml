@@ -260,6 +260,21 @@ max_frequency = "5s"
 [functions.resolve-consultant-code]
 verify_jwt = false
 
+[functions.create-order]
+verify_jwt = false
+
+[functions.create-checkout-session]
+verify_jwt = false
+
+[functions.check-availability]
+verify_jwt = false
+
+[functions.list-products]
+verify_jwt = false
+
+[functions.verify-serial]
+verify_jwt = false
+
 # Use pre-defined map of phone number to OTP for testing.
 # [auth.sms.test_otp]
 # 4152127777 = "123456"
