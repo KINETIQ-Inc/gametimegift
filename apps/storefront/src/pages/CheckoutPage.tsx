@@ -959,7 +959,7 @@ export function CheckoutPage() {
                       id="cp-gift-note"
                       value={giftNote}
                       onChange={(event) => setGiftNote(event.target.value)}
-                      placeholder="Why this piece fits them..."
+                      placeholder="Giving you your flowers..."
                       rows={3}
                       disabled={isSubmitting}
                     />
