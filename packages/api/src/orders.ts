@@ -196,6 +196,8 @@ export interface OrderAddress {
   country?: string
 }
 
+export type OrderAddon = 'roses_carnations' | 'roses_only' | 'humidor'
+
 export interface CreateOrderInput {
   productId: string
   quantity?: 1
@@ -205,6 +207,10 @@ export interface CreateOrderInput {
   consultantId?: string
   discountCode?: string
   shippingAddress?: OrderAddress
+  addons?: OrderAddon[]
+  giftRecipient?: string
+  giftOccasion?: string
+  giftNote?: string
 }
 
 export interface CreateOrderResult {
@@ -291,7 +297,7 @@ async function invokeCreateOrder(
   input: CreateOrderInput,
   options?: InvokeFunctionOptions,
 ): Promise<CreateOrderResult> {
-  const { productId, customerName, customerEmail, idempotencyKey, consultantId, discountCode, shippingAddress } =
+  const { productId, customerName, customerEmail, idempotencyKey, consultantId, discountCode, shippingAddress, addons, giftRecipient, giftOccasion, giftNote } =
     input
 
   if (!productId || typeof productId !== 'string') {
@@ -344,6 +350,10 @@ async function invokeCreateOrder(
           country: shippingAddress.country ?? 'US',
         },
       } : {}),
+      ...(addons && addons.length > 0 ? { addons } : {}),
+      ...(giftRecipient ? { gift_recipient: giftRecipient } : {}),
+      ...(giftOccasion ? { gift_occasion: giftOccasion } : {}),
+      ...(giftNote ? { gift_note: giftNote } : {}),
     },
     'createOrder',
     options,

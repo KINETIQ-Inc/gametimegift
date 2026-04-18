@@ -19,21 +19,14 @@ import {
   lazy,
   startTransition,
   Suspense,
-  useDeferredValue,
-  useEffect,
-  useState,
 } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Badge, Button, Heading } from '@gtg/ui'
-import { type ProductListItem } from '@gtg/api'
-import { formatUsdCents } from '@gtg/utils'
+import { Heading } from '@gtg/ui'
 import { useStorefront } from '../contexts/StorefrontContext'
 import { ConsultantAttributionBanner } from '../components/referral/ConsultantAttributionBanner'
 import { MegaNav } from '../components/mega-nav/MegaNav'
 import { SiteNav } from '../components/nav/SiteNav'
 import {
-  filterProducts,
-  shortenProductName,
   type LicenseFilter,
   type SportFilter,
 } from '../product-routing'
@@ -86,113 +79,20 @@ function DeferredSectionFallback({ minHeight = 160 }: { minHeight?: number }) {
   return <div style={{ minHeight }} aria-hidden="true" />
 }
 
-function GiftFlowPanel({
-  product,
-  onAddGift,
-}: {
-  product: ProductListItem | null
-  onAddGift: (product: ProductListItem, giftDetails: { recipient: string; occasion: string; note: string }) => void
-}) {
-  const [recipient, setRecipient] = useState('')
-  const [occasion, setOccasion] = useState('')
-  const [note, setNote] = useState('')
-
-  useEffect(() => {
-    setRecipient('')
-    setOccasion('')
-    setNote('')
-  }, [product?.sku])
-
-  if (!product) return null
-
-  return (
-    <section className="gift-flow-panel" aria-label="Gift flow">
-      <div className="gift-flow-intro">
-        <p className="gift-flow-eyebrow">Gift Builder</p>
-        <Heading as="h2">Add the gift details.</Heading>
-        <p>Personalize the order before checkout with who it&apos;s for, the occasion, and a note worth keeping.</p>
-
-        <div className="gift-flow-summary">
-          <span className="gift-flow-summary-label">Selected piece</span>
-          <strong>{shortenProductName(product.name)}</strong>
-          <span>{formatUsdCents(product.retail_price_cents)} · Officially licensed · Verified</span>
-        </div>
-
-        <div className="gift-flow-steps" aria-label="Gift detail steps">
-          <span>Recipient</span>
-          <span>Occasion</span>
-          <span>Gift note</span>
-        </div>
-      </div>
-
-      <form
-        className="gift-flow-form"
-        onSubmit={(event) => {
-          event.preventDefault()
-          onAddGift(product, {
-            recipient: recipient.trim(),
-            occasion: occasion.trim(),
-            note: note.trim(),
-          })
-        }}
-      >
-        <label>
-          Recipient
-          <input
-            value={recipient}
-            onChange={(event) => setRecipient(event.target.value)}
-            placeholder="Dad, coach, alum, veteran..."
-          />
-        </label>
-        <label>
-          Occasion
-          <input
-            value={occasion}
-            onChange={(event) => setOccasion(event.target.value)}
-            placeholder="Father's Day, graduation, retirement..."
-          />
-        </label>
-        <label>
-          Gift note
-          <textarea
-            value={note}
-            onChange={(event) => setNote(event.target.value)}
-            placeholder="Why this piece fits them"
-            rows={3}
-          />
-        </label>
-        <Button type="submit" variant="gold" size="lg">
-          Save Gift Details
-        </Button>
-      </form>
-    </section>
-  )
-}
-
 // ── HomePage ──────────────────────────────────────────────────
 
 export function HomePage() {
   const navigate = useNavigate()
   const {
-    products,
-    loading,
     error,
     licenseFilter,
     sportFilter,
     setLicenseFilter,
     setSportFilter,
     cartMessage,
-    addProductToCart,
     activeReferralCode,
     handleDismissAttribution,
   } = useStorefront()
-
-  const filteredProducts = filterProducts(
-    products,
-    licenseFilter as LicenseFilter,
-    sportFilter as SportFilter,
-  )
-  const deferredProducts = useDeferredValue(filteredProducts)
 
   function navigateToShop(nextSport: SportFilter, nextLicense: LicenseFilter): void {
     const params = new URLSearchParams()
@@ -278,7 +178,7 @@ export function HomePage() {
 
                     <div className="hero-actions">
                       <a href="#sport-selector" className="gtg-btn gtg-btn--gold gtg-btn--lg hero-primary-cta">
-                        Shop by Team
+                        Shop by Sport
                       </a>
                       <Link to="/authenticity" className="hero-secondary-cta">
                         Authenticity
@@ -430,17 +330,7 @@ export function HomePage() {
           </section>
         </div>
 
-        {/* ── 9. Gift flow (personalization form) ── */}
-        <div className="home-band-inner">
-          <section id="gift-flow" className="gift-flow-section">
-            <GiftFlowPanel
-              product={deferredProducts[0] ?? null}
-              onAddGift={(product, giftDetails) => addProductToCart(product, 'gift', giftDetails)}
-            />
-          </section>
-        </div>
-
-        {/* ── 10. Designed-to-pair editorial ── */}
+        {/* ── 9. Designed-to-pair editorial ── */}
         <div className="home-band-inner">
           <Suspense fallback={<DeferredSectionFallback minHeight={260} />}>
             <DesignedToPairSection />

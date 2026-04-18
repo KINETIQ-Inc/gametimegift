@@ -4428,6 +4428,135 @@ input {
   line-height: 1.5;
 }
 
+/* ── Gift personalization ── */
+
+.checkout-gift-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-ink-100);
+  border-radius: var(--radius-md);
+}
+
+.checkout-gift-heading {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-ink-400);
+  margin: 0 0 2px;
+}
+
+.checkout-gift-copy {
+  font-size: 0.875rem;
+  color: var(--color-ink-500);
+  margin: 0;
+}
+
+.checkout-field textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid var(--color-ink-100);
+  border-radius: var(--radius-md);
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  color: var(--color-ink-900);
+  background: var(--color-surface-0);
+  resize: vertical;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.checkout-field textarea:focus {
+  outline: none;
+  border-color: rgba(142, 118, 92, 0.7);
+  box-shadow: 0 0 0 3px rgba(197, 168, 132, 0.18);
+}
+
+.checkout-field textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: var(--color-surface-1);
+}
+
+/* ── Add-ons ── */
+
+.checkout-addons-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-ink-100);
+  border-radius: var(--radius-md);
+}
+
+.checkout-addons-heading {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-ink-400);
+  margin: 0 0 2px;
+}
+
+.checkout-addons-copy {
+  font-size: 0.875rem;
+  color: var(--color-ink-500);
+  margin: 0;
+}
+
+.checkout-addon-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.checkout-addon-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--color-surface-0);
+  border: 1.5px solid var(--color-ink-100);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  user-select: none;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.checkout-addon-option:has(input:checked) {
+  border-color: rgba(142, 118, 92, 0.6);
+  background: rgba(197, 168, 132, 0.06);
+}
+
+.checkout-addon-option input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-gold-600, #8e765c);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.checkout-addon-option input[type="checkbox"]:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.checkout-addon-label {
+  flex: 1;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--color-ink-700);
+}
+
+.checkout-addon-price {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-ink-600);
+}
+
 @media (max-width: 520px) {
   .checkout-overlay {
     align-items: flex-end;

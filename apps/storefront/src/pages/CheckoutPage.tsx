@@ -236,6 +236,21 @@ export function CheckoutPage() {
   const [billingState, setBillingState] = useState('')
   const [billingZip, setBillingZip] = useState('')
 
+  // Gift personalization
+  const [giftRecipient, setGiftRecipient] = useState('')
+  const [giftOccasion, setGiftOccasion] = useState('')
+  const [giftNote, setGiftNote] = useState('')
+
+  // Add-ons (flowers are mutually exclusive; humidor is independent)
+  type FlowerAddon = 'roses_carnations' | 'roses_only'
+  const [flowerAddon, setFlowerAddon] = useState<FlowerAddon | null>(null)
+  const [humidorAddon, setHumidorAddon] = useState(false)
+
+  const addonTotalCents =
+    (flowerAddon === 'roses_carnations' ? 4500 : 0) +
+    (flowerAddon === 'roses_only' ? 3500 : 0) +
+    (humidorAddon ? 4000 : 0)
+
   // Error state
   const [errorMessage, setErrorMessage] = useState('')
   const [errorKind, setErrorKind] = useState<ErrorKind>('validation')
@@ -557,6 +572,11 @@ export function CheckoutPage() {
         checkoutAbortController.abort()
       }, CHECKOUT_REQUEST_TIMEOUT_MS)
 
+      const selectedAddons: Array<'roses_carnations' | 'roses_only' | 'humidor'> = [
+        ...(flowerAddon ? [flowerAddon] : []),
+        ...(humidorAddon ? ['humidor' as const] : []),
+      ]
+
       let result
       try {
         result = await createOrderWithSessionRecovery({
@@ -575,6 +595,10 @@ export function CheckoutPage() {
           },
           ...(consultantId ? { consultantId } : {}),
           ...(trimmedDiscount ? { discountCode: trimmedDiscount } : {}),
+          ...(selectedAddons.length > 0 ? { addons: selectedAddons } : {}),
+          ...(giftRecipient.trim() ? { giftRecipient: giftRecipient.trim() } : {}),
+          ...(giftOccasion.trim() ? { giftOccasion: giftOccasion.trim() } : {}),
+          ...(giftNote.trim() ? { giftNote: giftNote.trim() } : {}),
         }, {
           signal: checkoutAbortController.signal,
         })
@@ -662,7 +686,7 @@ export function CheckoutPage() {
   }
 
   const art = product ? getFeaturedProductArt(product) : null
-  const orderTotal = serverOrderTotalCents ?? (product ? product.retail_price_cents : 0)
+  const orderTotal = serverOrderTotalCents ?? (product ? product.retail_price_cents + addonTotalCents : 0)
 
   const bundleLabel =
     bundleParam === 'flowers'
@@ -802,6 +826,24 @@ export function CheckoutPage() {
                   <span>Item subtotal</span>
                   <strong>{formatCents(product.retail_price_cents)}</strong>
                 </div>
+                {flowerAddon === 'roses_carnations' ? (
+                  <div className="checkout-page-order-line">
+                    <span>Roses with Carnations</span>
+                    <strong>+$45.00</strong>
+                  </div>
+                ) : null}
+                {flowerAddon === 'roses_only' ? (
+                  <div className="checkout-page-order-line">
+                    <span>Roses without Carnations</span>
+                    <strong>+$35.00</strong>
+                  </div>
+                ) : null}
+                {humidorAddon ? (
+                  <div className="checkout-page-order-line">
+                    <span>Cigar Humidor</span>
+                    <strong>+$40.00</strong>
+                  </div>
+                ) : null}
                 <div className="checkout-page-order-line">
                   <span>Shipping</span>
                   <strong>Included</strong>
@@ -872,6 +914,57 @@ export function CheckoutPage() {
                   />
                   <p className="checkout-field-hint">Order confirmation and receipt will be sent here.</p>
                 </div>
+
+                {/* ── Gift personalization ── */}
+                <section className="checkout-gift-section" aria-label="Gift personalization">
+                  <p className="checkout-gift-heading">Gift Personalization <span className="checkout-field-optional">(optional)</span></p>
+                  <p className="checkout-gift-copy">Personalize this order with who it&apos;s for and a note worth keeping.</p>
+
+                  <div className="checkout-field">
+                    <label htmlFor="cp-gift-recipient">
+                      Recipient
+                      <span className="checkout-field-optional"> (optional)</span>
+                    </label>
+                    <input
+                      id="cp-gift-recipient"
+                      type="text"
+                      value={giftRecipient}
+                      onChange={(event) => setGiftRecipient(event.target.value)}
+                      placeholder="Dad, coach, alum, veteran..."
+                      disabled={isSubmitting}
+                    />
+                  </div>
+
+                  <div className="checkout-field">
+                    <label htmlFor="cp-gift-occasion">
+                      Occasion
+                      <span className="checkout-field-optional"> (optional)</span>
+                    </label>
+                    <input
+                      id="cp-gift-occasion"
+                      type="text"
+                      value={giftOccasion}
+                      onChange={(event) => setGiftOccasion(event.target.value)}
+                      placeholder="Father's Day, graduation, retirement..."
+                      disabled={isSubmitting}
+                    />
+                  </div>
+
+                  <div className="checkout-field">
+                    <label htmlFor="cp-gift-note">
+                      Gift note
+                      <span className="checkout-field-optional"> (optional)</span>
+                    </label>
+                    <textarea
+                      id="cp-gift-note"
+                      value={giftNote}
+                      onChange={(event) => setGiftNote(event.target.value)}
+                      placeholder="Why this piece fits them..."
+                      rows={3}
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                </section>
 
                 {/* ── Shipping address ── */}
                 <section className="checkout-address-section" aria-label="Shipping address">
@@ -996,6 +1089,47 @@ export function CheckoutPage() {
                     </div>
                   ) : null}
                 </div>
+
+                {/* ── Add-ons ── */}
+                <section className="checkout-addons-section" aria-label="Optional add-ons">
+                  <p className="checkout-addons-heading">Add to Your Gift <span className="checkout-field-optional">(optional)</span></p>
+                  <p className="checkout-addons-copy">These items ship with your vase order.</p>
+
+                  <div className="checkout-addon-list">
+                    <label className="checkout-addon-option">
+                      <input
+                        type="checkbox"
+                        checked={flowerAddon === 'roses_carnations'}
+                        onChange={(event) => setFlowerAddon(event.target.checked ? 'roses_carnations' : null)}
+                        disabled={isSubmitting}
+                      />
+                      <span className="checkout-addon-label">Roses with Carnations</span>
+                      <span className="checkout-addon-price">+$45.00</span>
+                    </label>
+
+                    <label className="checkout-addon-option">
+                      <input
+                        type="checkbox"
+                        checked={flowerAddon === 'roses_only'}
+                        onChange={(event) => setFlowerAddon(event.target.checked ? 'roses_only' : null)}
+                        disabled={isSubmitting}
+                      />
+                      <span className="checkout-addon-label">Roses without Carnations</span>
+                      <span className="checkout-addon-price">+$35.00</span>
+                    </label>
+
+                    <label className="checkout-addon-option">
+                      <input
+                        type="checkbox"
+                        checked={humidorAddon}
+                        onChange={(event) => setHumidorAddon(event.target.checked)}
+                        disabled={isSubmitting}
+                      />
+                      <span className="checkout-addon-label">Cigar Humidor</span>
+                      <span className="checkout-addon-price">+$40.00</span>
+                    </label>
+                  </div>
+                </section>
 
                 <section className="checkout-payment-section" aria-label="Payment step">
                   <div className="checkout-payment-head">

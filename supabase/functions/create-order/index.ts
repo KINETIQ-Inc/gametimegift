@@ -27,6 +27,16 @@ interface RequestBody {
   consultant_id?: string
   discount_code?: string
   shipping_address?: ShippingAddressBody
+  addons?: string[]
+  gift_recipient?: string
+  gift_occasion?: string
+  gift_note?: string
+}
+
+const ADDON_PRICES: Record<string, number> = {
+  roses_carnations: 4500,
+  roses_only: 3500,
+  humidor: 4000,
 }
 
 interface ProductRow {
@@ -318,7 +328,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
       return jsonError(req, 'Internal server error', 500)
     }
 
-    const totalCents = product.retail_price_cents
+    const validAddons = (body.addons ?? []).filter((a) => a in ADDON_PRICES)
+    const addonCents = validAddons.reduce((sum, a) => sum + ADDON_PRICES[a], 0)
+    const totalCents = product.retail_price_cents + addonCents
     const customerId = channel === 'storefront_direct' ? authenticatedUserId : null
     const shippingAddress = {
       name: customerName,
@@ -410,6 +422,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
           channel,
           user_id: authenticatedUserId ?? '',
           idempotency_key: idempotencyKey,
+          addons: validAddons.join(','),
+          gift_recipient: body.gift_recipient?.trim() ?? '',
+          gift_occasion: body.gift_occasion?.trim() ?? '',
+          gift_note: body.gift_note?.trim() ?? '',
         },
       }, {
         idempotencyKey,
