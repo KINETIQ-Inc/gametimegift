@@ -288,7 +288,7 @@ export function CheckoutPage() {
 
   useEffect(() => {
     if (!cardMountRef.current) return
-    if (phase === 'confirmed' || phase === 'not-found' || phase === 'loading') return
+    if (phase === 'confirmed' || phase === 'not-found' || phase === 'loading' || phase === 'submitting') return
 
     let cancelled = false
 
