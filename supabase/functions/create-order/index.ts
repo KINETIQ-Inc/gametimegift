@@ -9,6 +9,15 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const IDEMPOTENCY_TTL_MS = 30 * 60 * 1000
 
+interface ShippingAddressBody {
+  line1?: string
+  line2?: string | null
+  city?: string
+  state?: string
+  postal_code?: string
+  country?: string
+}
+
 interface RequestBody {
   product_id?: string
   quantity?: number
@@ -17,6 +26,7 @@ interface RequestBody {
   idempotency_key?: string
   consultant_id?: string
   discount_code?: string
+  shipping_address?: ShippingAddressBody
 }
 
 interface ProductRow {
@@ -310,14 +320,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     const totalCents = product.retail_price_cents
     const customerId = channel === 'storefront_direct' ? authenticatedUserId : null
-    const placeholderShippingAddress = {
+    const shippingAddress = {
       name: customerName,
-      line1: '',
-      line2: null,
-      city: '',
-      state: '',
-      postal_code: '',
-      country: 'US',
+      line1: body.shipping_address?.line1?.trim() ?? '',
+      line2: body.shipping_address?.line2?.trim() ?? null,
+      city: body.shipping_address?.city?.trim() ?? '',
+      state: body.shipping_address?.state?.trim() ?? '',
+      postal_code: body.shipping_address?.postal_code?.trim() ?? '',
+      country: body.shipping_address?.country?.trim() ?? 'US',
     }
 
     const { data: orderData, error: orderError } = await admin
@@ -331,7 +341,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         customer_email: customerEmail,
         consultant_id: consultant?.id ?? null,
         consultant_name: consultant?.display_name ?? null,
-        shipping_address: placeholderShippingAddress,
+        shipping_address: shippingAddress,
         payment_method: 'card',
         subtotal_cents: totalCents,
         discount_cents: 0,

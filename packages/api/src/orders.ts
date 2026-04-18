@@ -187,6 +187,15 @@ export interface CreateCheckoutSessionResult {
   channel: 'storefront_direct' | 'consultant_assisted'
 }
 
+export interface OrderAddress {
+  line1: string
+  line2?: string | null
+  city: string
+  state: string
+  postalCode: string
+  country?: string
+}
+
 export interface CreateOrderInput {
   productId: string
   quantity?: 1
@@ -195,6 +204,7 @@ export interface CreateOrderInput {
   idempotencyKey: string
   consultantId?: string
   discountCode?: string
+  shippingAddress?: OrderAddress
 }
 
 export interface CreateOrderResult {
@@ -281,7 +291,7 @@ async function invokeCreateOrder(
   input: CreateOrderInput,
   options?: InvokeFunctionOptions,
 ): Promise<CreateOrderResult> {
-  const { productId, customerName, customerEmail, idempotencyKey, consultantId, discountCode } =
+  const { productId, customerName, customerEmail, idempotencyKey, consultantId, discountCode, shippingAddress } =
     input
 
   if (!productId || typeof productId !== 'string') {
@@ -324,6 +334,16 @@ async function invokeCreateOrder(
       idempotency_key: idempotencyKey.trim(),
       ...(consultantId ? { consultant_id: consultantId } : {}),
       ...(discountCode ? { discount_code: discountCode.trim().toUpperCase() } : {}),
+      ...(shippingAddress ? {
+        shipping_address: {
+          line1: shippingAddress.line1,
+          line2: shippingAddress.line2 ?? null,
+          city: shippingAddress.city,
+          state: shippingAddress.state,
+          postal_code: shippingAddress.postalCode,
+          country: shippingAddress.country ?? 'US',
+        },
+      } : {}),
     },
     'createOrder',
     options,

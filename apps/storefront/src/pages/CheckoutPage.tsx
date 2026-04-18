@@ -98,6 +98,15 @@ interface StripeConfirmCardPaymentResult {
   }
 }
 
+interface StripeBillingAddress {
+  line1?: string
+  line2?: string | null
+  city?: string
+  state?: string
+  postal_code?: string
+  country?: string
+}
+
 interface StripeClient {
   elements: () => StripeElements
   confirmCardPayment: (
@@ -108,6 +117,7 @@ interface StripeClient {
         billing_details: {
           name: string
           email: string
+          address?: StripeBillingAddress
         }
       }
     },
@@ -210,6 +220,21 @@ export function CheckoutPage() {
   const [consultantCode, setConsultantCode] = useState('')
   const [discountCode, setDiscountCode] = useState('')
   const [codesOpen, setCodesOpen] = useState(false)
+
+  // Shipping address
+  const [shippingLine1, setShippingLine1] = useState('')
+  const [shippingLine2, setShippingLine2] = useState('')
+  const [shippingCity, setShippingCity] = useState('')
+  const [shippingState, setShippingState] = useState('')
+  const [shippingZip, setShippingZip] = useState('')
+
+  // Billing address
+  const [billingSameAsShipping, setBillingSameAsShipping] = useState(true)
+  const [billingLine1, setBillingLine1] = useState('')
+  const [billingLine2, setBillingLine2] = useState('')
+  const [billingCity, setBillingCity] = useState('')
+  const [billingState, setBillingState] = useState('')
+  const [billingZip, setBillingZip] = useState('')
 
   // Error state
   const [errorMessage, setErrorMessage] = useState('')
@@ -404,6 +429,18 @@ export function CheckoutPage() {
     const trimmedCode = consultantCode.trim().toUpperCase()
     const trimmedDiscount = discountCode.trim().toUpperCase()
 
+    const trimmedShippingLine1 = shippingLine1.trim()
+    const trimmedShippingLine2 = shippingLine2.trim()
+    const trimmedShippingCity  = shippingCity.trim()
+    const trimmedShippingState = shippingState.trim()
+    const trimmedShippingZip   = shippingZip.trim()
+
+    const effectiveBillingLine1  = billingSameAsShipping ? trimmedShippingLine1  : billingLine1.trim()
+    const effectiveBillingLine2  = billingSameAsShipping ? trimmedShippingLine2  : billingLine2.trim()
+    const effectiveBillingCity   = billingSameAsShipping ? trimmedShippingCity   : billingCity.trim()
+    const effectiveBillingState  = billingSameAsShipping ? trimmedShippingState  : billingState.trim()
+    const effectiveBillingZip    = billingSameAsShipping ? trimmedShippingZip    : billingZip.trim()
+
     // Client-side validation
     if (!trimmedName) {
       submitLockRef.current = false
@@ -418,6 +455,64 @@ export function CheckoutPage() {
       setErrorKind('validation')
       setPhase('api-error')
       return
+    }
+    if (!trimmedShippingLine1) {
+      submitLockRef.current = false
+      setErrorMessage('Shipping street address is required.')
+      setErrorKind('validation')
+      setPhase('api-error')
+      return
+    }
+    if (!trimmedShippingCity) {
+      submitLockRef.current = false
+      setErrorMessage('Shipping city is required.')
+      setErrorKind('validation')
+      setPhase('api-error')
+      return
+    }
+    if (!trimmedShippingState) {
+      submitLockRef.current = false
+      setErrorMessage('Shipping state is required.')
+      setErrorKind('validation')
+      setPhase('api-error')
+      return
+    }
+    if (!trimmedShippingZip) {
+      submitLockRef.current = false
+      setErrorMessage('Shipping ZIP code is required.')
+      setErrorKind('validation')
+      setPhase('api-error')
+      return
+    }
+    if (!billingSameAsShipping) {
+      if (!billingLine1.trim()) {
+        submitLockRef.current = false
+        setErrorMessage('Billing street address is required.')
+        setErrorKind('validation')
+        setPhase('api-error')
+        return
+      }
+      if (!billingCity.trim()) {
+        submitLockRef.current = false
+        setErrorMessage('Billing city is required.')
+        setErrorKind('validation')
+        setPhase('api-error')
+        return
+      }
+      if (!billingState.trim()) {
+        submitLockRef.current = false
+        setErrorMessage('Billing state is required.')
+        setErrorKind('validation')
+        setPhase('api-error')
+        return
+      }
+      if (!billingZip.trim()) {
+        submitLockRef.current = false
+        setErrorMessage('Billing ZIP code is required.')
+        setErrorKind('validation')
+        setPhase('api-error')
+        return
+      }
     }
 
     setPhase('submitting')
@@ -470,6 +565,14 @@ export function CheckoutPage() {
           customerName: trimmedName,
           customerEmail: trimmedEmail,
           idempotencyKey: attemptKey,
+          shippingAddress: {
+            line1: trimmedShippingLine1,
+            line2: trimmedShippingLine2 || null,
+            city: trimmedShippingCity,
+            state: trimmedShippingState,
+            postalCode: trimmedShippingZip,
+            country: 'US',
+          },
           ...(consultantId ? { consultantId } : {}),
           ...(trimmedDiscount ? { discountCode: trimmedDiscount } : {}),
         }, {
@@ -494,6 +597,14 @@ export function CheckoutPage() {
           billing_details: {
             name: trimmedName,
             email: trimmedEmail,
+            address: {
+              line1: effectiveBillingLine1,
+              line2: effectiveBillingLine2 || null,
+              city: effectiveBillingCity,
+              state: effectiveBillingState,
+              postal_code: effectiveBillingZip,
+              country: 'US',
+            },
           },
         },
       })
@@ -762,6 +873,84 @@ export function CheckoutPage() {
                   <p className="checkout-field-hint">Order confirmation and receipt will be sent here.</p>
                 </div>
 
+                {/* ── Shipping address ── */}
+                <section className="checkout-address-section" aria-label="Shipping address">
+                  <p className="checkout-address-heading">Shipping Address</p>
+
+                  <div className="checkout-field">
+                    <label htmlFor="cp-ship-line1">Street address</label>
+                    <input
+                      id="cp-ship-line1"
+                      type="text"
+                      value={shippingLine1}
+                      onChange={(event) => { setShippingLine1(event.target.value); clearError() }}
+                      placeholder="123 Main St"
+                      autoComplete="shipping address-line1"
+                      required
+                      disabled={isSubmitting}
+                    />
+                  </div>
+
+                  <div className="checkout-field">
+                    <label htmlFor="cp-ship-line2">
+                      Apt, suite, etc.
+                      <span className="checkout-field-optional"> (optional)</span>
+                    </label>
+                    <input
+                      id="cp-ship-line2"
+                      type="text"
+                      value={shippingLine2}
+                      onChange={(event) => { setShippingLine2(event.target.value) }}
+                      placeholder="Apt 4B"
+                      autoComplete="shipping address-line2"
+                      disabled={isSubmitting}
+                    />
+                  </div>
+
+                  <div className="checkout-address-row">
+                    <div className="checkout-field checkout-address-city">
+                      <label htmlFor="cp-ship-city">City</label>
+                      <input
+                        id="cp-ship-city"
+                        type="text"
+                        value={shippingCity}
+                        onChange={(event) => { setShippingCity(event.target.value); clearError() }}
+                        placeholder="New York"
+                        autoComplete="shipping address-level2"
+                        required
+                        disabled={isSubmitting}
+                      />
+                    </div>
+                    <div className="checkout-field checkout-address-state">
+                      <label htmlFor="cp-ship-state">State</label>
+                      <input
+                        id="cp-ship-state"
+                        type="text"
+                        value={shippingState}
+                        onChange={(event) => { setShippingState(event.target.value); clearError() }}
+                        placeholder="NY"
+                        autoComplete="shipping address-level1"
+                        maxLength={2}
+                        required
+                        disabled={isSubmitting}
+                      />
+                    </div>
+                    <div className="checkout-field checkout-address-zip">
+                      <label htmlFor="cp-ship-zip">ZIP code</label>
+                      <input
+                        id="cp-ship-zip"
+                        type="text"
+                        value={shippingZip}
+                        onChange={(event) => { setShippingZip(event.target.value); clearError() }}
+                        placeholder="10001"
+                        autoComplete="shipping postal-code"
+                        required
+                        disabled={isSubmitting}
+                      />
+                    </div>
+                  </div>
+                </section>
+
                 {/* ── Optional codes — progressive disclosure ── */}
                 <div className="checkout-codes-section">
                   <button
@@ -827,6 +1016,98 @@ export function CheckoutPage() {
                       <strong>Included</strong>
                     </div>
                   </div>
+
+                  {/* ── Billing address ── */}
+                  <div className="checkout-billing-same">
+                    <label className="checkout-billing-same-label">
+                      <input
+                        type="checkbox"
+                        checked={billingSameAsShipping}
+                        onChange={(event) => { setBillingSameAsShipping(event.target.checked) }}
+                        disabled={isSubmitting}
+                      />
+                      <span>Billing address same as shipping</span>
+                    </label>
+                  </div>
+
+                  {!billingSameAsShipping ? (
+                    <section className="checkout-address-section" aria-label="Billing address">
+                      <p className="checkout-address-heading">Billing Address</p>
+
+                      <div className="checkout-field">
+                        <label htmlFor="cp-bill-line1">Street address</label>
+                        <input
+                          id="cp-bill-line1"
+                          type="text"
+                          value={billingLine1}
+                          onChange={(event) => { setBillingLine1(event.target.value); clearError() }}
+                          placeholder="123 Main St"
+                          autoComplete="billing address-line1"
+                          required
+                          disabled={isSubmitting}
+                        />
+                      </div>
+
+                      <div className="checkout-field">
+                        <label htmlFor="cp-bill-line2">
+                          Apt, suite, etc.
+                          <span className="checkout-field-optional"> (optional)</span>
+                        </label>
+                        <input
+                          id="cp-bill-line2"
+                          type="text"
+                          value={billingLine2}
+                          onChange={(event) => { setBillingLine2(event.target.value) }}
+                          placeholder="Apt 4B"
+                          autoComplete="billing address-line2"
+                          disabled={isSubmitting}
+                        />
+                      </div>
+
+                      <div className="checkout-address-row">
+                        <div className="checkout-field checkout-address-city">
+                          <label htmlFor="cp-bill-city">City</label>
+                          <input
+                            id="cp-bill-city"
+                            type="text"
+                            value={billingCity}
+                            onChange={(event) => { setBillingCity(event.target.value); clearError() }}
+                            placeholder="New York"
+                            autoComplete="billing address-level2"
+                            required
+                            disabled={isSubmitting}
+                          />
+                        </div>
+                        <div className="checkout-field checkout-address-state">
+                          <label htmlFor="cp-bill-state">State</label>
+                          <input
+                            id="cp-bill-state"
+                            type="text"
+                            value={billingState}
+                            onChange={(event) => { setBillingState(event.target.value); clearError() }}
+                            placeholder="NY"
+                            autoComplete="billing address-level1"
+                            maxLength={2}
+                            required
+                            disabled={isSubmitting}
+                          />
+                        </div>
+                        <div className="checkout-field checkout-address-zip">
+                          <label htmlFor="cp-bill-zip">ZIP code</label>
+                          <input
+                            id="cp-bill-zip"
+                            type="text"
+                            value={billingZip}
+                            onChange={(event) => { setBillingZip(event.target.value); clearError() }}
+                            placeholder="10001"
+                            autoComplete="billing postal-code"
+                            required
+                            disabled={isSubmitting}
+                          />
+                        </div>
+                      </div>
+                    </section>
+                  ) : null}
 
                   <div className="checkout-field">
                     <label htmlFor="cp-card">Card details</label>
