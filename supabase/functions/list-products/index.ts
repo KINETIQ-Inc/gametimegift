@@ -89,11 +89,10 @@
  *   500  Internal server error
  */
 
-import { ALL_ROLES, verifyRole } from '../_shared/auth.ts'
 import { handleCors } from '../_shared/cors.ts'
 import { createLogger } from '../_shared/logger.ts'
 import { jsonError, jsonResponse, unauthorized } from '../_shared/response.ts'
-import { createAdminClient, createUserClient } from '../_shared/supabase.ts'
+import { createAdminClient, getUserFromRequest } from '../_shared/supabase.ts'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -151,19 +150,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
     // Any authenticated user may browse the catalog.
     // RLS on products limits non-admin callers to is_active = true rows.
 
-    const userClient = createUserClient(req)
-    const { data: { user }, error: authError } = await userClient.auth.getUser()
+    const { data: { user }, error: authError } = await getUserFromRequest(req)
 
     if (authError !== null || user === null) {
       log.warn('Authentication failed', { error: authError?.message })
       return unauthorized(req)
     }
 
-    // Extract role for logging; no admin restriction on this endpoint.
-    const { authorized } = verifyRole(user, ALL_ROLES, req)
-    const authedLog = authorized
-      ? log.withUser(authorized.id)
-      : log.withUser(user.id)
+    const authedLog = log.withUser(user.id)
 
     authedLog.info('Authenticated')
 

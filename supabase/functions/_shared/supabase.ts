@@ -138,7 +138,7 @@ export function createUserClient(req: Request): SupabaseClient<Database> {
 // ─── getUserFromRequest ───────────────────────────────────────────────────────
 
 /**
- * Authenticate the caller via local JWT verification using SUPABASE_JWT_SECRET.
+ * Authenticate the caller via local JWT verification using a configured JWT secret.
  *
  * Verifies the HMAC-SHA256 signature of the bearer token without making any
  * network call to the auth API. This avoids the auth.getUser() pattern which
@@ -172,7 +172,11 @@ export async function getUserFromRequest(req: Request): Promise<{
   }
 
   // Verify JWT signature locally — no network call, works for anonymous users.
-  const jwtSecret = Deno.env.get('SUPABASE_JWT_SECRET')
+  // Hosted Supabase disallows creating custom secrets that start with SUPABASE_,
+  // so production uses GTG_JWT_SECRET while keeping the legacy name as fallback.
+  const jwtSecret =
+    Deno.env.get('GTG_JWT_SECRET') ??
+    Deno.env.get('SUPABASE_JWT_SECRET')
   if (jwtSecret) {
     const result = await _verifyJwtLocal(token, jwtSecret)
     if (result) return { data: { user: result }, error: null }

@@ -302,6 +302,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     const { data: orderNumber, error: orderNumberError } = await admin.rpc('generate_order_number')
     if (orderNumberError || !orderNumber) {
+      authedLog.error('Order number generation failed', {
+        error: orderNumberError?.message ?? 'generate_order_number returned no value',
+      })
       return jsonError(req, 'Internal server error', 500)
     }
 
@@ -343,6 +346,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
       .single()
 
     if (orderError || !orderData) {
+      authedLog.error('Order insert failed', {
+        error: orderError?.message ?? 'orders insert returned no row',
+        channel,
+        customer_id: customerId,
+        consultant_id: consultant?.id ?? null,
+      })
       return jsonError(req, 'Internal server error', 500)
     }
 
@@ -358,6 +367,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
       .eq('id', unit.unit_id)
 
     if (unitAttachError) {
+      authedLog.error('Reserved unit attach failed', {
+        order_id: order.id,
+        unit_id: unit.unit_id,
+        error: unitAttachError.message,
+      })
       await cleanupFailedCheckoutAttempt({
         admin,
         unitId: unit.unit_id,
@@ -407,6 +421,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
 
     if (!paymentIntent.client_secret) {
+      authedLog.error('Stripe payment intent missing client secret', {
+        order_id: order.id,
+        payment_intent_id: paymentIntent.id,
+      })
       await cancelPaymentIntentSafely(stripe, paymentIntent.id, authedLog, {
         order_id: order.id,
         stage: 'missing_client_secret',
@@ -445,6 +463,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
       .eq('id', order.id)
 
     if (persistError) {
+      authedLog.error('Persisting payment intent failed', {
+        order_id: order.id,
+        payment_intent_id: paymentIntent.id,
+        error: persistError.message,
+      })
       await cancelPaymentIntentSafely(stripe, paymentIntent.id, authedLog, {
         order_id: order.id,
         stage: 'persist_payment_intent',
