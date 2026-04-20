@@ -219,7 +219,7 @@ img {
   filter: grayscale(1) sepia(1) hue-rotate(168deg) saturate(190%) brightness(0.5) contrast(0.92);
 }
 
-.sport-art.football { width: 300px; right: 22%; top: 275px; }
+.sport-art.football { width: 300px; right: 18%; top: 275px; }
 .sport-art.soccer { width: 220px; left: 40%; top: 18px; }
 .sport-art.basketball { width: 260px; right: 4%; top: 14px; }
 .sport-art.baseball { width: 276px; left: 22%; top: 220px; }
