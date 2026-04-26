@@ -19,7 +19,7 @@ interface SiteNavProps {
 }
 
 export function SiteNav({ mode = 'light' }: SiteNavProps) {
-  const { cart, cartCount, checkoutEnabled } = useStorefront()
+  const { cartCount, checkoutEnabled } = useStorefront()
   const { isCustomer } = useStorefrontSession()
   const [menuOpen, setMenuOpen] = useState(false)
 
@@ -75,7 +75,7 @@ export function SiteNav({ mode = 'light' }: SiteNavProps) {
 
       <div className="site-nav__actions">
         <Link
-          to={cart[0]?.sku ? `/checkout?sku=${cart[0].sku}` : '/checkout'}
+          to="/cart"
           className="site-nav__cart"
           aria-label={`Cart — ${cartCount} item${cartCount === 1 ? '' : 's'}`}
           aria-disabled={!checkoutEnabled}

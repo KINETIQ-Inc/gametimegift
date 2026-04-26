@@ -206,12 +206,9 @@ export function CheckoutPage() {
   const flowersParam = params.get('flowers')?.trim().toLowerCase() ?? null
   const {
     products,
-    cart,
     loading: catalogLoading,
     activeReferralCode: contextReferralCode,
     checkoutEnabled,
-    removeFromCart,
-    updateCartQuantity,
   } = useStorefront()
   const { isCustomer, currentUserEmail } = useStorefrontSession()
 
@@ -831,43 +828,6 @@ export function CheckoutPage() {
                 <p className="checkout-page-summary-eyebrow">Order Summary</p>
                 <h2 className="checkout-page-summary-title">A premium gift, almost reserved.</h2>
               </div>
-
-              {cart.length > 0 ? (
-                <div className="checkout-cart-items" aria-label="Cart items">
-                  {cart.map((entry) => (
-                    <div key={`${entry.sku}-${entry.intent}`} className="checkout-cart-item">
-                      <span className="checkout-cart-item__name">{entry.name}</span>
-                      <div className="checkout-cart-item__controls">
-                        <button
-                          type="button"
-                          className="checkout-cart-item__qty-btn"
-                          aria-label="Decrease quantity"
-                          onClick={() => {
-                            if (entry.quantity === 1) {
-                              removeFromCart(entry.sku, entry.intent)
-                            } else {
-                              updateCartQuantity(entry.sku, entry.intent, entry.quantity - 1)
-                            }
-                          }}
-                        >−</button>
-                        <span className="checkout-cart-item__qty">{entry.quantity}</span>
-                        <button
-                          type="button"
-                          className="checkout-cart-item__qty-btn"
-                          aria-label="Increase quantity"
-                          onClick={() => updateCartQuantity(entry.sku, entry.intent, entry.quantity + 1)}
-                        >+</button>
-                        <button
-                          type="button"
-                          className="checkout-cart-item__remove"
-                          aria-label={`Remove ${entry.name}`}
-                          onClick={() => removeFromCart(entry.sku, entry.intent)}
-                        >×</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
 
               <div className="checkout-page-product-art-frame">
                 {art ? (

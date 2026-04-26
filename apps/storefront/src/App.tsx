@@ -17,19 +17,40 @@
  * the shared catalog and referral state, while remaining the only checkout UI.
  */
 
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, type ReactElement } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { StorefrontProvider } from './contexts/StorefrontContext'
+import { useStorefrontSession } from './contexts/StorefrontSessionContext'
 import { HomePage } from './pages/HomePage'
 import { ShopPage } from './pages/ShopPage'
 import { AuthenticityPage } from './pages/AuthenticityPage'
 import { ProductPage } from './pages/ProductPage'
 import { ConsultantPage } from './pages/ConsultantPage'
 import { InfoPage } from './pages/InfoPage'
+import { AccountSignInPage } from './pages/AccountSignInPage'
+import { AccountCreatePage } from './pages/AccountCreatePage'
+import { AccountOrdersPage } from './pages/AccountOrdersPage'
+import { AccountProfilePage } from './pages/AccountProfilePage'
+import { CartPage } from './pages/CartPage'
 
 const CheckoutPage = lazy(async () =>
   import('./pages/CheckoutPage').then((m) => ({ default: m.CheckoutPage })),
 )
+
+function RequireCustomerAccount({ children }: { children: ReactElement }) {
+  const { sessionReady, isCustomer } = useStorefrontSession()
+
+  if (!sessionReady) {
+    return null
+  }
+
+  if (!isCustomer) {
+    const next = `${window.location.pathname}${window.location.search}`
+    return <Navigate to={`/account/sign-in?next=${encodeURIComponent(next)}`} replace />
+  }
+
+  return children
+}
 
 export default function App() {
   return (
@@ -42,7 +63,28 @@ export default function App() {
           <Route path="/authenticity" element={<AuthenticityPage />} />
           <Route path="/product/:sku/:slug" element={<ProductPage />} />
           <Route path="/consultant" element={<ConsultantPage />} />
+          <Route path="/account/sign-in" element={<AccountSignInPage />} />
+          <Route path="/account/create" element={<AccountCreatePage />} />
+          <Route
+            path="/account/orders"
+            element={(
+              <RequireCustomerAccount>
+                <AccountOrdersPage />
+              </RequireCustomerAccount>
+            )}
+          />
+          <Route
+            path="/account/profile"
+            element={(
+              <RequireCustomerAccount>
+                <AccountProfilePage />
+              </RequireCustomerAccount>
+            )}
+          />
           <Route path="/:slug" element={<InfoPage />} />
+
+          {/* Cart */}
+          <Route path="/cart" element={<CartPage />} />
 
           {/* Checkout — dedicated single entry point, lazy-loaded */}
           <Route
