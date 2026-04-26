@@ -89,12 +89,14 @@ export function SiteNav({ mode = 'light' }: SiteNavProps) {
             <svg width="17" height="19" viewBox="0 0 17 19" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
               <path d="M5 7C5 4.515 6.515 3 8.5 3S12 4.515 12 7" />
               <path d="M1.5 7h14l-1.4 10.5H2.9L1.5 7z" />
+              {cartCount > 0 ? (
+                <text x="8.5" y="14.5" textAnchor="middle" stroke="none" fill="currentColor" fontSize="5.5" fontWeight="800" fontFamily="system-ui, sans-serif">
+                  {cartCount > 9 ? '9+' : cartCount}
+                </text>
+              ) : null}
             </svg>
           </span>
           <span className="site-nav__cart-label">Cart</span>
-          {cartCount > 0 ? (
-            <span className="site-nav__cart-count">{cartCount}</span>
-          ) : null}
         </Link>
       </div>
     </nav>

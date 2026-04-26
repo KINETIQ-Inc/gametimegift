@@ -5361,23 +5361,6 @@ input {
   flex-shrink: 0;
 }
 
-.site-nav__cart-count {
-  position: absolute;
-  top: -6px;
-  right: -8px;
-  background: var(--color-accent-500);
-  color: var(--color-primary-950);
-  border-radius: var(--radius-full);
-  font-family: var(--font-body);
-  font-size: 0.65rem;
-  font-weight: var(--font-weight-extrabold);
-  min-width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 4px;
-}
 
 @media (max-width: 1024px) {
   .site-nav {
@@ -6481,9 +6464,6 @@ body {
   text-transform: uppercase;
 }
 
-.site-nav__cart-count {
-  background: rgba(255, 255, 255, 0.16);
-}
 
 .hero-stage.hero-stage--redesign {
   margin-top: 0;
