@@ -25,7 +25,7 @@ export function SiteNav({ mode = 'light' }: SiteNavProps) {
 
   useEffect(() => {
     function handleResize() {
-      if (window.innerWidth > 1180) {
+      if (window.innerWidth > 680) {
         setMenuOpen(false)
       }
     }

@@ -3372,7 +3372,7 @@ input {
   }
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 680px) {
   .site-nav {
     grid-template-columns: auto 1fr auto auto;
     gap: var(--space-3);
@@ -5667,7 +5667,7 @@ input {
 }
 
 
-@media (max-width: 1024px) {
+@media (max-width: 680px) {
   .site-nav {
     grid-template-columns: auto 1fr auto auto;
     gap: var(--space-3);
