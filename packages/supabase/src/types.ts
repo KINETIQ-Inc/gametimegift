@@ -371,6 +371,41 @@ export type Database = {
         Relationships: []
       }
 
+      // ── customer_profiles ─────────────────────────────────────────────────
+      customer_profiles: {
+        Row: {
+          id: string
+          auth_user_id: string
+          email: string
+          full_name: string | null
+          phone: string | null
+          default_shipping_address: Json | null
+          marketing_email_opt_in: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          auth_user_id: string
+          email: string
+          full_name?: string | null
+          phone?: string | null
+          default_shipping_address?: Json | null
+          marketing_email_opt_in?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          email?: string
+          full_name?: string | null
+          phone?: string | null
+          default_shipping_address?: Json | null
+          marketing_email_opt_in?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+
       // ── commission_entries ────────────────────────────────────────────────
       commission_entries: {
         Row: {

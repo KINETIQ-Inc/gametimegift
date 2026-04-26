@@ -1,7 +1,7 @@
-import { StrictMode, useEffect, useState } from 'react'
+import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
-import { configureApiClient, ensureAnonymousSession } from '@gtg/api'
+import { configureApiClient } from '@gtg/api'
 import { getEnv, initEnv } from '@gtg/config'
 import '@gtg/ui/fonts.css'
 import '@gtg/ui/tokens.css'
@@ -87,22 +87,8 @@ function StorefrontErrorScreen({ message }: { message: string }) {
 }
 
 function BootstrapApp() {
-  const [sessionReady, setSessionReady] = useState(true)
-
-  useEffect(() => {
-    // Best effort only: storefront and checkout should remain usable even
-    // when Supabase auth is unavailable or the anonymous session cannot be
-    // created immediately.
-    void ensureAnonymousSession().catch((error) => {
-      console.warn(
-        '[GTG] Optional anonymous session initialization failed',
-        error instanceof Error ? error.message : String(error),
-      )
-    })
-  }, [])
-
   return (
-    <StorefrontSessionProvider value={{ sessionReady }}>
+    <StorefrontSessionProvider>
       <BrowserRouter>
         <App />
       </BrowserRouter>
