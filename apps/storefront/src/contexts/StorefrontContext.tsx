@@ -193,7 +193,7 @@ export function StorefrontProvider({ children }: { children: ReactNode }) {
     }
 
     void load()
-  }, [])
+  }, [appEnv])
 
   // ── Persist cart ──────────────────────────────────────────
   useEffect(() => {
