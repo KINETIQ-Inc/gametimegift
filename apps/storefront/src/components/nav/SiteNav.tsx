@@ -11,6 +11,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useStorefront } from '../../contexts/StorefrontContext'
+import { useStorefrontSession } from '../../contexts/StorefrontSessionContext'
 import gameTimeGiftLogo from '../../assets/game_time_gift.png'
 
 interface SiteNavProps {
@@ -18,7 +19,8 @@ interface SiteNavProps {
 }
 
 export function SiteNav({ mode = 'light' }: SiteNavProps) {
-  const { cartCount, checkoutEnabled } = useStorefront()
+  const { cart, cartCount, checkoutEnabled } = useStorefront()
+  const { isCustomer } = useStorefrontSession()
   const [menuOpen, setMenuOpen] = useState(false)
 
   useEffect(() => {
@@ -60,11 +62,20 @@ export function SiteNav({ mode = 'light' }: SiteNavProps) {
         <li><Link to="/shop" className="site-nav__link" onClick={() => setMenuOpen(false)}>Shop</Link></li>
         <li><Link to="/authenticity" className="site-nav__link" onClick={() => setMenuOpen(false)}>Authenticity</Link></li>
         <li><Link to="/consultant" className="site-nav__link" onClick={() => setMenuOpen(false)}>Consultants</Link></li>
+        <li>
+          <Link
+            to={isCustomer ? '/account/orders' : '/account/sign-in'}
+            className="site-nav__link"
+            onClick={() => setMenuOpen(false)}
+          >
+            {isCustomer ? 'Account' : 'Sign In'}
+          </Link>
+        </li>
       </ul>
 
       <div className="site-nav__actions">
         <Link
-          to="/checkout"
+          to={cart[0]?.sku ? `/checkout?sku=${cart[0].sku}` : '/checkout'}
           className="site-nav__cart"
           aria-label={`Cart — ${cartCount} item${cartCount === 1 ? '' : 's'}`}
           aria-disabled={!checkoutEnabled}
