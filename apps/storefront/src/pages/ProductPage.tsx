@@ -277,16 +277,22 @@ function ProductDetail({
   product,
   onCheckout,
   onAddToCart,
+  onViewCart,
   onGiftFlow,
   cartCount,
+  cartMessage,
   checkoutEnabled,
+  productInCart,
 }: {
   product: ProductListItem
   onCheckout: (options: CheckoutOptions) => void
   onAddToCart: (quantity: number) => void
+  onViewCart: () => void
   onGiftFlow: () => void
   cartCount: number
+  cartMessage: string | null
   checkoutEnabled: boolean
+  productInCart: boolean
 }) {
   const sportArt = getSportArt(product)
   const featuredArt = getFeaturedProductArt(product)
@@ -378,17 +384,6 @@ function ProductDetail({
             <div className="product-detail-buy">
               <div className="product-detail-meta">
                 <div>
-                  <span className="meta-label">Order Limit</span>
-                  {product.in_stock ? (
-                    <strong>1 collectible per checkout</strong>
-                  ) : (
-                    <strong>Currently unavailable</strong>
-                  )}
-                  {product.in_stock ? (
-                    <span className="product-detail-meta-note">Ready to ship</span>
-                  ) : null}
-                </div>
-                <div>
                   <span className="meta-label">Price</span>
                   <strong>{formatUsdCents(product.retail_price_cents)}</strong>
                   <span className="product-detail-meta-note">Per collectible</span>
@@ -403,6 +398,12 @@ function ProductDetail({
                     Secure checkout, premium presentation, and a collectible that feels worthy of the occasion.
                   </p>
                 </div>
+
+                {cartMessage ? (
+                  <AlertBanner kind="success">
+                    {cartMessage}
+                  </AlertBanner>
+                ) : null}
 
                 {product.in_stock ? (
                   <div className="product-detail-actions">
@@ -499,8 +500,12 @@ function ProductDetail({
                       <Button variant="gold" size="lg" onClick={handleBuyNow} disabled={!checkoutEnabled}>
                         {bundlePanelOpen ? 'Continue to Checkout' : 'Buy Now'}
                       </Button>
-                      <Button variant="primary" size="lg" onClick={() => onAddToCart(1)}>
-                        Add to Cart
+                      <Button
+                        variant="primary"
+                        size="lg"
+                        onClick={productInCart ? onViewCart : () => onAddToCart(1)}
+                      >
+                        {productInCart ? 'View Cart' : 'Add to Cart'}
                       </Button>
                     </div>
                     <Button variant="ghost" size="md" onClick={onGiftFlow}>
@@ -515,6 +520,8 @@ function ProductDetail({
                                 ? `Vase + Flowers${flowerOption === 'roses-carnations' ? ' — Roses + Carnations' : ' — Roses Only'}`
                                 : 'Vase + Cigar Humidor'
                           }.`
+                        : productInCart
+                          ? 'This collectible is already in your cart. Review it or keep browsing.'
                         : cartCount > 0
                           ? `${cartCount} item${cartCount === 1 ? '' : 's'} waiting in your cart`
                           : 'Buy now for immediate checkout, or add to cart and keep browsing.'}
@@ -591,7 +598,9 @@ export function ProductPage() {
   const {
     products,
     loading,
+    cart,
     addProductToCart,
+    cartMessage,
     activeReferralCode,
     cartCount,
     checkoutEnabled,
@@ -599,6 +608,7 @@ export function ProductPage() {
   const navigate = useNavigate()
 
   const product = products.find((p) => p.sku === sku) ?? null
+  const productInCart = product ? cart.some((entry) => entry.sku === product.sku) : false
 
   // Track page view
   useEffect(() => {
@@ -641,7 +651,9 @@ export function ProductPage() {
           <ProductDetail
             product={product}
             cartCount={cartCount}
+            cartMessage={cartMessage}
             checkoutEnabled={checkoutEnabled}
+            productInCart={productInCart}
             onCheckout={(options) => {
               trackStorefrontEvent('checkout_opened', {
                 sku: product.sku,
@@ -654,6 +666,7 @@ export function ProductPage() {
               navigate(buildCheckoutPath(product, activeReferralCode, options))
             }}
             onAddToCart={(quantity) => addProductToCart(product, 'cart', undefined, quantity)}
+            onViewCart={() => navigate('/cart')}
             onGiftFlow={handleGiftFlow}
           />
         ) : (
