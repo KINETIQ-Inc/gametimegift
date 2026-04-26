@@ -155,6 +155,8 @@ export interface StorefrontContextValue {
     intent: CartIntent,
     giftDetails?: GiftIntentDetails,
   ) => void
+  removeFromCart: (sku: string, intent: CartIntent) => void
+  updateCartQuantity: (sku: string, intent: CartIntent, quantity: number) => void
 
   // Referral attribution
   activeReferralCode: string | null
@@ -312,6 +314,17 @@ export function StorefrontProvider({ children }: { children: ReactNode }) {
     [],
   )
 
+  const removeFromCart = useCallback((sku: string, intent: CartIntent) => {
+    setCart((current) => current.filter((e) => !(e.sku === sku && e.intent === intent)))
+  }, [])
+
+  const updateCartQuantity = useCallback((sku: string, intent: CartIntent, quantity: number) => {
+    if (quantity < 1) return
+    setCart((current) =>
+      current.map((e) => e.sku === sku && e.intent === intent ? { ...e, quantity } : e),
+    )
+  }, [])
+
   const handleDismissAttribution = useCallback(() => {
     clearReferralAttribution()
     setActiveReferralCode(null)
@@ -337,6 +350,8 @@ export function StorefrontProvider({ children }: { children: ReactNode }) {
     cartCount,
     cartMessage,
     addProductToCart,
+    removeFromCart,
+    updateCartQuantity,
     activeReferralCode,
     handleDismissAttribution,
     verifySerialFromConfirmation,

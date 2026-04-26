@@ -17,6 +17,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import {
   createOrder,
   ensureAnonymousSession,
+  getMyCustomerProfile,
   isAuthError,
   resolveConsultantCode,
   signOut,
@@ -47,6 +48,7 @@ import { shortenProductName } from '../product-routing'
 import { trackStorefrontEvent } from '../analytics'
 import { captureReferralAttribution, clearReferralAttribution } from '../referral-attribution'
 import { useStorefront } from '../contexts/StorefrontContext'
+import { useStorefrontSession } from '../contexts/StorefrontSessionContext'
 import gameTimeGiftLogo from '../assets/game_time_gift.png'
 
 const OrderConfirmation = lazy(async () =>
@@ -204,10 +206,14 @@ export function CheckoutPage() {
   const flowersParam = params.get('flowers')?.trim().toLowerCase() ?? null
   const {
     products,
+    cart,
     loading: catalogLoading,
     activeReferralCode: contextReferralCode,
     checkoutEnabled,
+    removeFromCart,
+    updateCartQuantity,
   } = useStorefront()
+  const { isCustomer, currentUserEmail } = useStorefrontSession()
 
   const [phase, setPhase] = useState<PagePhase>('loading')
   const [confirmedSession, setConfirmedSession] = useState<StoredCheckoutSession | null>(null)
@@ -258,6 +264,45 @@ export function CheckoutPage() {
   const [cardReady, setCardReady] = useState(false)
 
   const nameRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (currentUserEmail && customerEmail.trim().length === 0) {
+      setCustomerEmail(currentUserEmail)
+    }
+  }, [currentUserEmail, customerEmail])
+
+  useEffect(() => {
+    if (!isCustomer) return
+
+    let active = true
+
+    async function hydrateCustomerProfile(): Promise<void> {
+      try {
+        const profile = await getMyCustomerProfile()
+        if (!active || !profile) return
+
+        if (profile.full_name && customerName.trim().length === 0) {
+          setCustomerName(profile.full_name)
+        }
+
+        if (shippingLine1.trim().length === 0 && profile.default_shipping_address) {
+          const address = profile.default_shipping_address as Record<string, unknown>
+          setShippingLine1(typeof address.line1 === 'string' ? address.line1 : '')
+          setShippingLine2(typeof address.line2 === 'string' ? address.line2 : '')
+          setShippingCity(typeof address.city === 'string' ? address.city : '')
+          setShippingState(typeof address.state === 'string' ? address.state : '')
+          setShippingZip(typeof address.postalCode === 'string' ? address.postalCode : '')
+        }
+      } catch {
+        // Non-blocking: checkout still works if customer profile hydration fails.
+      }
+    }
+
+    void hydrateCustomerProfile()
+    return () => {
+      active = false
+    }
+  }, [isCustomer, customerName, shippingLine1])
   const cardMountRef = useRef<HTMLDivElement>(null)
   const checkoutAttemptKeyRef = useRef<string | null>(null)
   const submitLockRef = useRef(false)
@@ -786,6 +831,43 @@ export function CheckoutPage() {
                 <p className="checkout-page-summary-eyebrow">Order Summary</p>
                 <h2 className="checkout-page-summary-title">A premium gift, almost reserved.</h2>
               </div>
+
+              {cart.length > 0 ? (
+                <div className="checkout-cart-items" aria-label="Cart items">
+                  {cart.map((entry) => (
+                    <div key={`${entry.sku}-${entry.intent}`} className="checkout-cart-item">
+                      <span className="checkout-cart-item__name">{entry.name}</span>
+                      <div className="checkout-cart-item__controls">
+                        <button
+                          type="button"
+                          className="checkout-cart-item__qty-btn"
+                          aria-label="Decrease quantity"
+                          onClick={() => {
+                            if (entry.quantity === 1) {
+                              removeFromCart(entry.sku, entry.intent)
+                            } else {
+                              updateCartQuantity(entry.sku, entry.intent, entry.quantity - 1)
+                            }
+                          }}
+                        >−</button>
+                        <span className="checkout-cart-item__qty">{entry.quantity}</span>
+                        <button
+                          type="button"
+                          className="checkout-cart-item__qty-btn"
+                          aria-label="Increase quantity"
+                          onClick={() => updateCartQuantity(entry.sku, entry.intent, entry.quantity + 1)}
+                        >+</button>
+                        <button
+                          type="button"
+                          className="checkout-cart-item__remove"
+                          aria-label={`Remove ${entry.name}`}
+                          onClick={() => removeFromCart(entry.sku, entry.intent)}
+                        >×</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
 
               <div className="checkout-page-product-art-frame">
                 {art ? (
