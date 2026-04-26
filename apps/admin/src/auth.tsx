@@ -1,17 +1,12 @@
 /**
- * Auth context for the admin portal.
- *
- * Wraps the router root. Provides session state and auth actions.
- * Uses auth wrappers from @gtg/api — never touches the Supabase client directly.
+ * AuthProvider — session state and auth actions for the admin portal.
  *
  * Usage:
  *   const { session, loading, signIn, signOut } = useAuth()
  */
 
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useState,
   type ReactNode,
@@ -23,31 +18,15 @@ import {
   subscribeToAuthChanges,
   type AppAuthSession,
 } from '@gtg/api'
-
-type SupabaseSession = AppAuthSession
-
-export interface AuthContextValue {
-  session: SupabaseSession
-  loading: boolean
-  signIn: (email: string, password: string) => Promise<void>
-  signOut: () => Promise<void>
-}
-
-const AuthContext = createContext<AuthContextValue | null>(null)
-
-export function useAuth(): AuthContextValue {
-  const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error('useAuth() must be used inside <AuthProvider>')
-  return ctx
-}
+import { AuthContext } from './auth-context'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<SupabaseSession>(null)
+  const [session, setSession] = useState<AppAuthSession>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    void getAuthSession().then((session) => {
-      setSession(session)
+    void getAuthSession().then((s) => {
+      setSession(s)
       setLoading(false)
     })
 

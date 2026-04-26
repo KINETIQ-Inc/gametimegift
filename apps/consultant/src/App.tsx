@@ -15,7 +15,8 @@
 
 import { type ReactNode } from 'react'
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
-import { AuthProvider, useAuth } from './auth'
+import { AuthProvider } from './auth'
+import { useAuth } from './useAuth'
 import { PortalNav } from './components/PortalNav'
 import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/DashboardPage'

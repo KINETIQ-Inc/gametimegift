@@ -47,8 +47,8 @@ import { getFeaturedProductArt } from '../config/featured-product-art'
 import { shortenProductName } from '../product-routing'
 import { trackStorefrontEvent } from '../analytics'
 import { captureReferralAttribution, clearReferralAttribution } from '../referral-attribution'
-import { useStorefront } from '../contexts/StorefrontContext'
-import { useStorefrontSession } from '../contexts/StorefrontSessionContext'
+import { useStorefront } from '../contexts/useStorefront'
+import { useStorefrontSession } from '../contexts/useStorefrontSession'
 import gameTimeGiftLogo from '../assets/game_time_gift.png'
 
 const OrderConfirmation = lazy(async () =>

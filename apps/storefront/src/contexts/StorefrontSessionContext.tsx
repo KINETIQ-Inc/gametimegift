@@ -1,6 +1,4 @@
 import {
-  createContext,
-  useContext,
   useEffect,
   useState,
   type ReactNode,
@@ -8,7 +6,7 @@ import {
 import {
   ensureAnonymousSession,
   getAuthSession,
-  getClient,
+  refreshAuthSession,
   requestPasswordReset,
   signInWithPassword as signInWithPasswordApi,
   signOut as signOutApi,
@@ -18,6 +16,9 @@ import {
   type SignUpCustomerInput,
   type SignUpCustomerResult,
 } from '@gtg/api'
+import { StorefrontSessionContext } from './storefront-session-context'
+
+export type { StorefrontSessionContextValue } from './storefront-session-context'
 
 type StorefrontUserRole =
   | 'customer'
@@ -26,21 +27,6 @@ type StorefrontUserRole =
   | 'super_admin'
   | 'licensor_auditor'
 
-export interface StorefrontSessionContextValue {
-  sessionReady: boolean
-  session: AppAuthSession
-  role: StorefrontUserRole | null
-  isAnonymous: boolean
-  isAuthenticated: boolean
-  isCustomer: boolean
-  currentUserEmail: string | null
-  signInCustomer: (input: { email: string; password: string }) => Promise<void>
-  signUpCustomer: (input: SignUpCustomerInput) => Promise<SignUpCustomerResult>
-  requestCustomerPasswordReset: (input: { email: string; redirectTo?: string }) => Promise<void>
-  signOutCustomer: () => Promise<void>
-  refreshManagedSession: () => Promise<AppAuthSession>
-}
-
 const VALID_ROLES: readonly StorefrontUserRole[] = [
   'customer',
   'consultant',
@@ -48,8 +34,6 @@ const VALID_ROLES: readonly StorefrontUserRole[] = [
   'super_admin',
   'licensor_auditor',
 ] as const
-
-const StorefrontSessionContext = createContext<StorefrontSessionContextValue | null>(null)
 
 function isKnownRole(value: unknown): value is StorefrontUserRole {
   return typeof value === 'string' && VALID_ROLES.includes(value as StorefrontUserRole)
@@ -70,15 +54,7 @@ export function StorefrontSessionProvider({ children }: { children: ReactNode })
   const [session, setSession] = useState<AppAuthSession>(null)
 
   async function refreshManagedSession(): Promise<AppAuthSession> {
-    const { data, error } = await getClient().auth.refreshSession()
-    if (error) {
-      const fallbackSession = await getAuthSession()
-      setSession(fallbackSession)
-      setSessionReady(true)
-      return fallbackSession
-    }
-
-    const refreshedSession = data.session ?? await getAuthSession()
+    const refreshedSession = await refreshAuthSession()
     setSession(refreshedSession)
     setSessionReady(true)
     return refreshedSession
@@ -184,12 +160,4 @@ export function StorefrontSessionProvider({ children }: { children: ReactNode })
       {children}
     </StorefrontSessionContext.Provider>
   )
-}
-
-export function useStorefrontSession(): StorefrontSessionContextValue {
-  const ctx = useContext(StorefrontSessionContext)
-  if (!ctx) {
-    throw new Error('useStorefrontSession() must be used inside <StorefrontSessionProvider>.')
-  }
-  return ctx
 }

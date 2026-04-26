@@ -10,7 +10,7 @@ import { type FormEvent, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { AlertBanner, Button, Heading } from '@gtg/ui'
 import { toUserMessage } from '@gtg/api'
-import { useAuth } from '../auth'
+import { useAuth } from '../useAuth'
 
 export function LoginPage() {
   const { session, loading, signIn } = useAuth()

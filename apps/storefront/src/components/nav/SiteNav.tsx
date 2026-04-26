@@ -10,8 +10,8 @@
 
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useStorefront } from '../../contexts/StorefrontContext'
-import { useStorefrontSession } from '../../contexts/StorefrontSessionContext'
+import { useStorefront } from '../../contexts/useStorefront'
+import { useStorefrontSession } from '../../contexts/useStorefrontSession'
 import gameTimeGiftLogo from '../../assets/game_time_gift.png'
 
 interface SiteNavProps {

@@ -13,7 +13,7 @@ import { CreateProductPanel } from '../features/product/CreateProductPanel'
 import { LicenseAssignmentPanel } from '../features/product/LicenseAssignmentPanel'
 import { ProductsTablePanel } from '../features/product/ProductsTablePanel'
 import { EditProductPanel } from '../features/product/EditProductPanel'
-import { useAdminState } from '../AdminShell'
+import { useAdminState } from '../useAdminState'
 
 export function ProductsPage() {
   const {

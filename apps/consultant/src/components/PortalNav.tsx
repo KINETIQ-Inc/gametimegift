@@ -7,7 +7,7 @@
 
 import { NavLink } from 'react-router-dom'
 import { Button } from '@gtg/ui'
-import { useAuth } from '../auth'
+import { useAuth } from '../useAuth'
 
 const NAV_LINKS = [
   { to: '/dashboard', label: 'Dashboard' },

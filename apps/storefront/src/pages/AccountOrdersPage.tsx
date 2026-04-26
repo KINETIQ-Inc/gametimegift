@@ -36,8 +36,9 @@ export function AccountOrdersPage() {
         if (!active) return
         setErrorMessage(toUserMessage(error, 'Unable to load your orders right now.'))
       } finally {
-        if (!active) return
-        setLoading(false)
+        if (active) {
+          setLoading(false)
+        }
       }
     }
 

@@ -11,12 +11,14 @@ const {
   ensureAnonymousSessionMock,
   resolveConsultantCodeMock,
   useStorefrontMock,
+  useStorefrontSessionMock,
   trackStorefrontEventMock,
 } = vi.hoisted(() => ({
   createOrderMock: vi.fn(),
   ensureAnonymousSessionMock: vi.fn(),
   resolveConsultantCodeMock: vi.fn(),
   useStorefrontMock: vi.fn(),
+  useStorefrontSessionMock: vi.fn(),
   trackStorefrontEventMock: vi.fn(),
 }))
 
@@ -33,6 +35,16 @@ vi.mock('@gtg/api', async () => {
 
 vi.mock('../src/contexts/StorefrontContext', () => ({
   useStorefront: useStorefrontMock,
+}))
+
+vi.mock('../src/contexts/StorefrontSessionContext', () => ({
+  useStorefrontSession: useStorefrontSessionMock,
+}))
+
+vi.mock('@gtg/config', () => ({
+  getEnv: vi.fn(() => ({
+    stripePublishableKey: 'pk_test_123',
+  })),
 }))
 
 vi.mock('../src/analytics', () => ({
@@ -81,9 +93,12 @@ function renderCheckoutPage() {
   return render(<CheckoutPage />)
 }
 
-function getSubmitButton(): HTMLButtonElement {
-  const buttons = screen.getAllByRole('button', { name: /continue to payment/i })
-  return buttons[buttons.length - 1] as HTMLButtonElement
+async function getSubmitButton(): Promise<HTMLButtonElement> {
+  const button = await screen.findByRole('button', { name: /pay securely/i })
+  await waitFor(() => {
+    expect(button).not.toHaveAttribute('disabled')
+  })
+  return button as HTMLButtonElement
 }
 
 async function fillRequiredFields() {
@@ -92,6 +107,18 @@ async function fillRequiredFields() {
   })
   fireEvent.change(screen.getByLabelText(/email address/i), {
     target: { value: 'jane@example.com' },
+  })
+  fireEvent.change(screen.getByLabelText(/^street address$/i), {
+    target: { value: '123 Main St' },
+  })
+  fireEvent.change(screen.getByLabelText(/^city$/i), {
+    target: { value: 'New York' },
+  })
+  fireEvent.change(screen.getByLabelText(/^state$/i), {
+    target: { value: 'NY' },
+  })
+  fireEvent.change(screen.getByLabelText(/zip code/i), {
+    target: { value: '10001' },
   })
 }
 
@@ -104,8 +131,22 @@ describe('CheckoutPage critical checkout scenarios', () => {
     vi.clearAllMocks()
     window.localStorage.clear()
     window.sessionStorage.clear()
+    window.Stripe = vi.fn(() => ({
+      elements: () => ({
+        create: () => ({
+          mount: vi.fn(),
+          destroy: vi.fn(),
+          on: vi.fn(),
+        }),
+      }),
+      confirmCardPayment: vi.fn(),
+    }))
     ensureAnonymousSessionMock.mockResolvedValue(undefined)
     resolveConsultantCodeMock.mockResolvedValue(null)
+    useStorefrontSessionMock.mockReturnValue({
+      isCustomer: false,
+      currentUserEmail: null,
+    })
     trackStorefrontEventMock.mockReturnValue(undefined)
   })
 
@@ -127,7 +168,7 @@ describe('CheckoutPage critical checkout scenarios', () => {
     renderCheckoutPage()
     await fillRequiredFields()
 
-    fireEvent.click(getSubmitButton())
+    fireEvent.click(await getSubmitButton())
 
     await waitFor(() => {
       expect(ensureAnonymousSessionMock).toHaveBeenCalledTimes(1)
@@ -146,7 +187,7 @@ describe('CheckoutPage critical checkout scenarios', () => {
     renderCheckoutPage()
     await fillRequiredFields()
 
-    const submitButton = getSubmitButton()
+    const submitButton = await getSubmitButton()
     fireEvent.click(submitButton)
     fireEvent.click(submitButton)
 
@@ -167,7 +208,7 @@ describe('CheckoutPage critical checkout scenarios', () => {
     renderCheckoutPage()
     await fillRequiredFields()
 
-    const submitButton = getSubmitButton()
+    const submitButton = await getSubmitButton()
     fireEvent.click(submitButton)
 
     await screen.findByText(/Unable to reach the server/i)
@@ -197,7 +238,7 @@ describe('CheckoutPage critical checkout scenarios', () => {
     renderCheckoutPage()
     await fillRequiredFields()
 
-    fireEvent.click(getSubmitButton())
+    fireEvent.click(await getSubmitButton())
 
     expect(
       await screen.findByText(/currently out of stock/i),

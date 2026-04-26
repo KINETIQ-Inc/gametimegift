@@ -202,3 +202,12 @@ export async function getCurrentUserRole(): Promise<UserRole | null> {
   const role = session?.user?.app_metadata?.['role']
   return isUserRole(role) ? role : null
 }
+
+export async function refreshAuthSession(): Promise<AppAuthSession> {
+  const client = getSupabaseClient()
+  const { data, error } = await client.auth.refreshSession()
+  if (error) {
+    return getAuthSession()
+  }
+  return data.session ?? getAuthSession()
+}

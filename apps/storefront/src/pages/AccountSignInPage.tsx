@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { AlertBanner, Button, Heading } from '@gtg/ui'
 import { toUserMessage } from '@gtg/api'
 import { AccountShell } from '../components/account/AccountShell'
-import { useStorefrontSession } from '../contexts/StorefrontSessionContext'
+import { useStorefrontSession } from '../contexts/useStorefrontSession'
 
 function getRedirectTarget(search: string): string {
   const params = new URLSearchParams(search)

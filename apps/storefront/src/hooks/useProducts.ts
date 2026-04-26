@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getClient } from '@gtg/api'
-
-type ProductLicenseBody = 'CLC' | 'ARMY' | 'NONE'
+import { listProducts } from '@gtg/api'
 
 export interface StorefrontProduct {
   id: string
@@ -9,20 +7,10 @@ export interface StorefrontProduct {
   name: string
   description: string | null
   school: string | null
-  license_body: ProductLicenseBody
+  license_body: string
   retail_price_cents: number
   created_at: string
   updated_at: string
-}
-
-interface ProductRow {
-  id: string
-  sku: string
-  name: string
-  school: string | null
-  license_body: ProductLicenseBody
-  retail_price_cents: number
-  created_at: string
 }
 
 export function useProducts() {
@@ -38,26 +26,10 @@ export function useProducts() {
       setError(null)
 
       try {
-        const client = getClient()
-        const { data, error: queryError } = await client
-          .from('products')
-          .select('id, sku, name, school, license_body:license_type, retail_price_cents:price, created_at')
-          .eq('active', true)
-          .order('created_at', { ascending: false })
-
-        if (queryError) {
-          throw queryError
-        }
-
-        const nextProducts = ((data ?? []) as ProductRow[]).map((product) => ({
-          ...product,
-          description: null,
-          updated_at: product.created_at,
-        }))
+        const result = await listProducts({ limit: 120, offset: 0 })
 
         if (!cancelled) {
-          setProducts(nextProducts)
-          console.log('[GTG] useProducts fetched products', nextProducts)
+          setProducts(result.products)
         }
       } catch (err) {
         if (!cancelled) {

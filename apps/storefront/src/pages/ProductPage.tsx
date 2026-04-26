@@ -30,7 +30,7 @@ import { AlertBanner, Button, Heading } from '@gtg/ui'
 import { formatUsdCents } from '@gtg/utils'
 import { type ProductListItem } from '@gtg/api'
 import { trackStorefrontEvent } from '../analytics'
-import { useStorefront } from '../contexts/StorefrontContext'
+import { useStorefront } from '../contexts/useStorefront'
 import { SiteNav } from '../components/nav/SiteNav'
 import {
   getSportFromProduct,

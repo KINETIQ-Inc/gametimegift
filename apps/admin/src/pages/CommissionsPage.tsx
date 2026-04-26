@@ -5,7 +5,7 @@
  */
 
 import { CommissionSummaryPanel } from '../features/product/CommissionSummaryPanel'
-import { useAdminState } from '../AdminShell'
+import { useAdminState } from '../useAdminState'
 
 export function CommissionsPage() {
   const {

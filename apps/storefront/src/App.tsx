@@ -20,7 +20,7 @@
 import { lazy, Suspense, type ReactElement } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { StorefrontProvider } from './contexts/StorefrontContext'
-import { useStorefrontSession } from './contexts/StorefrontSessionContext'
+import { useStorefrontSession } from './contexts/useStorefrontSession'
 import { HomePage } from './pages/HomePage'
 import { ShopPage } from './pages/ShopPage'
 import { AuthenticityPage } from './pages/AuthenticityPage'

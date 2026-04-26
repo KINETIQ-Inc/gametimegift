@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { formatUsdCents } from '@gtg/utils'
-import { useStorefront } from '../contexts/StorefrontContext'
+import { useStorefront } from '../contexts/useStorefront'
 import { SiteNav } from '../components/nav/SiteNav'
 
 const StorefrontFooter = lazy(async () =>

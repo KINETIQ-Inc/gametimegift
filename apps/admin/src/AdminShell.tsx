@@ -9,9 +9,9 @@
  * individual pages don't need to repeat those.
  */
 
-import { Navigate, NavLink, Outlet, useOutletContext } from 'react-router-dom'
+import { Navigate, NavLink, Outlet } from 'react-router-dom'
 import { Button } from '@gtg/ui'
-import { useAuth } from './auth'
+import { useAuth } from './useAuth'
 import { useAdminDashboard } from './hooks/use-admin-dashboard'
 import { StatusBanners } from './components/StatusBanners'
 
@@ -90,6 +90,3 @@ function AdminShellInner({ signOut }: { signOut: () => Promise<void> }) {
   )
 }
 
-export function useAdminState(): AdminDashboardState {
-  return useOutletContext<AdminDashboardState>()
-}

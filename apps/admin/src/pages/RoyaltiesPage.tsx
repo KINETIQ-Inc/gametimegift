@@ -5,7 +5,7 @@
  */
 
 import { RoyaltySummaryPanel } from '../features/product/RoyaltySummaryPanel'
-import { useAdminState } from '../AdminShell'
+import { useAdminState } from '../useAdminState'
 
 export function RoyaltiesPage() {
   const {

@@ -8,7 +8,7 @@
 
 import { UploadUnitsPanel } from '../features/product/UploadUnitsPanel'
 import { BatchValidationPanel } from '../features/product/BatchValidationPanel'
-import { useAdminState } from '../AdminShell'
+import { useAdminState } from '../useAdminState'
 
 export function InventoryPage() {
   const {

@@ -6,7 +6,7 @@ import {
   toUserMessage,
 } from '@gtg/api'
 import { AccountShell } from '../components/account/AccountShell'
-import { useStorefrontSession } from '../contexts/StorefrontSessionContext'
+import { useStorefrontSession } from '../contexts/useStorefrontSession'
 
 export function AccountProfilePage() {
   const { currentUserEmail } = useStorefrontSession()
@@ -43,8 +43,9 @@ export function AccountProfilePage() {
         if (!active) return
         setErrorMessage(toUserMessage(error, 'Unable to load your profile right now.'))
       } finally {
-        if (!active) return
-        setLoading(false)
+        if (active) {
+          setLoading(false)
+        }
       }
     }
 

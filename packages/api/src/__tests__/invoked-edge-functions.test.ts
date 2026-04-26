@@ -622,14 +622,15 @@ describe('API wrapper invoked edge functions', () => {
     })
   })
 
-  it('createOrder delegates to create-checkout-session', async () => {
+  it('createOrder invokes create-order edge function', async () => {
     invokeMock.mockResolvedValue({
       data: {
         data: {
           order_id: UUID,
           order_number: 'GTG-20260403-000001',
-          session_id: 'sess_1',
-          session_url: 'https://checkout.stripe.com',
+          payment_intent_id: 'pi_test_001',
+          client_secret: 'pi_test_001_secret',
+          total_cents: 9999,
           unit_id: UUID,
           serial_number: 'SER-1',
           product_id: UUID,
@@ -645,18 +646,15 @@ describe('API wrapper invoked edge functions', () => {
       productId: UUID,
       customerName: 'John Doe',
       customerEmail: 'JOHN@EXAMPLE.COM',
-      successUrl: 'https://example.com/success',
-      cancelUrl: 'https://example.com/cancel',
       idempotencyKey: 'gtg-checkout-test-key-0002',
     })
 
-    expect(invokeMock).toHaveBeenCalledWith('create-checkout-session', {
+    expect(invokeMock).toHaveBeenCalledWith('create-order', {
       body: {
         product_id: UUID,
+        quantity: 1,
         customer_name: 'John Doe',
         customer_email: 'john@example.com',
-        success_url: 'https://example.com/success',
-        cancel_url: 'https://example.com/cancel',
         idempotency_key: 'gtg-checkout-test-key-0002',
       },
     })

@@ -6,7 +6,7 @@
 
 import { FraudControlPanel } from '../features/fraud/FraudControlPanel'
 import { FraudReportPanel } from '../features/fraud/FraudReportPanel'
-import { useAdminState } from '../AdminShell'
+import { useAdminState } from '../useAdminState'
 
 export function FraudPage() {
   const {

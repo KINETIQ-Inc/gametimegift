@@ -14,16 +14,13 @@
  */
 
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useRef,
   useState,
   type ReactNode,
 } from 'react'
 import {
-  getClient,
   listProducts,
   type ProductListItem,
 } from '@gtg/api'
@@ -35,7 +32,8 @@ import {
 } from '../referral-attribution'
 import { trackStorefrontEvent, initStorefrontPerformanceTracking } from '../analytics'
 import { shortenProductName } from '../product-routing'
-import { useStorefrontSession } from './StorefrontSessionContext'
+import { StorefrontContext } from './storefront-context'
+import { useStorefrontSession } from './useStorefrontSession'
 
 // ── Cart types ──────────────────────────────────────────────
 
@@ -63,17 +61,6 @@ export type { LicenseFilter, SportFilter } from '../product-routing'
 // ── Storage ─────────────────────────────────────────────────
 
 const CART_STORAGE_KEY = 'gtg-storefront-cart-v1'
-
-type DirectStorefrontProductRow = {
-  id: string
-  sku: string
-  name: string
-  school: string | null
-  sport: string | null
-  license_body: 'CLC' | 'ARMY' | 'NONE'
-  retail_price_cents: number
-  created_at: string
-}
 
 function loadStoredCart(): CartEntry[] {
   if (typeof window === 'undefined') return []
@@ -107,33 +94,6 @@ function loadStoredCart(): CartEntry[] {
 function saveStoredCart(cart: CartEntry[]): void {
   if (typeof window === 'undefined') return
   window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart))
-}
-
-async function loadCatalogDirectly(): Promise<ProductListItem[]> {
-  const client = getClient()
-  const { data, error } = await client
-    .from('products')
-    .select('id, sku, name, school, sport, license_body:license_type, retail_price_cents:price, created_at')
-    .eq('active', true)
-    .order('created_at', { ascending: false })
-
-  if (error) {
-    throw error
-  }
-
-  return ((data ?? []) as DirectStorefrontProductRow[]).map((product) => ({
-    id: product.id,
-    sku: product.sku,
-    name: product.name,
-    description: product.sport ? `${product.sport} collectible` : null,
-    school: product.school,
-    license_body: product.license_body,
-    retail_price_cents: product.retail_price_cents,
-    available_count: 1,
-    in_stock: true,
-    created_at: product.created_at,
-    updated_at: product.created_at,
-  }))
 }
 
 // ── Context shape ────────────────────────────────────────────
@@ -175,16 +135,6 @@ export interface StorefrontContextValue {
 }
 
 // ── Context ──────────────────────────────────────────────────
-
-const StorefrontContext = createContext<StorefrontContextValue | null>(null)
-
-export function useStorefront(): StorefrontContextValue {
-  const ctx = useContext(StorefrontContext)
-  if (!ctx) {
-    throw new Error('useStorefront() must be used inside <StorefrontProvider>.')
-  }
-  return ctx
-}
 
 // ── Provider ─────────────────────────────────────────────────
 
@@ -229,32 +179,11 @@ export function StorefrontProvider({ children }: { children: ReactNode }) {
         const result = await listProducts({ limit: 120, offset: 0 })
         if (result.products.length > 0) {
           setProducts(result.products)
-          return
-        }
-        const directProducts = await loadCatalogDirectly()
-        if (directProducts.length > 0) {
-          setProducts(directProducts)
-          return
-        }
-        if (appEnv !== 'production') {
+        } else if (appEnv !== 'production') {
           setProducts(DEV_MOCK_STOREFRONT_PRODUCTS)
         }
       } catch (err) {
-        try {
-          const directProducts = await loadCatalogDirectly()
-          if (directProducts.length > 0) {
-            setProducts(directProducts)
-            return
-          }
-        } catch (directErr) {
-          setError(
-            directErr instanceof Error
-              ? directErr
-              : err instanceof Error
-                ? err
-                : new Error('Failed to load products'),
-          )
-        }
+        setError(err instanceof Error ? err : new Error('Failed to load products'))
         if (appEnv !== 'production') {
           setProducts(DEV_MOCK_STOREFRONT_PRODUCTS)
         }
