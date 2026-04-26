@@ -295,8 +295,6 @@ function ProductDetail({
   const [bundlePanelOpen, setBundlePanelOpen] = useState(false)
   const [bundle, setBundle] = useState<PurchaseBundle>('vase')
   const [flowerOption, setFlowerOption] = useState<FlowerOption>('roses')
-  const [quantity, setQuantity] = useState(1)
-
   const bundleOptions: Array<{
     id: PurchaseBundle
     title: string
@@ -380,27 +378,9 @@ function ProductDetail({
             <div className="product-detail-buy">
               <div className="product-detail-meta">
                 <div>
-                  <span className="meta-label">Quantity</span>
+                  <span className="meta-label">Order Limit</span>
                   {product.in_stock ? (
-                    <div className="product-detail-qty-stepper" role="group" aria-label={`Quantity for ${productLabel}`}>
-                      <button
-                        type="button"
-                        className="product-detail-qty-stepper__btn"
-                        aria-label="Decrease quantity"
-                        onClick={() => setQuantity((current) => Math.max(1, current - 1))}
-                      >
-                        -
-                      </button>
-                      <span className="product-detail-qty-stepper__count">{quantity}</span>
-                      <button
-                        type="button"
-                        className="product-detail-qty-stepper__btn"
-                        aria-label="Increase quantity"
-                        onClick={() => setQuantity((current) => Math.min(9, current + 1))}
-                      >
-                        +
-                      </button>
-                    </div>
+                    <strong>1 collectible per checkout</strong>
                   ) : (
                     <strong>Currently unavailable</strong>
                   )}
@@ -519,8 +499,8 @@ function ProductDetail({
                       <Button variant="gold" size="lg" onClick={handleBuyNow} disabled={!checkoutEnabled}>
                         {bundlePanelOpen ? 'Continue to Checkout' : 'Buy Now'}
                       </Button>
-                      <Button variant="primary" size="lg" onClick={() => onAddToCart(quantity)}>
-                        Add {quantity} to Cart
+                      <Button variant="primary" size="lg" onClick={() => onAddToCart(1)}>
+                        Add to Cart
                       </Button>
                     </div>
                     <Button variant="ghost" size="md" onClick={onGiftFlow}>

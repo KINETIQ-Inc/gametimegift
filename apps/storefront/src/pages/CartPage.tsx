@@ -10,7 +10,7 @@ const StorefrontFooter = lazy(async () =>
 
 export function CartPage() {
   const navigate = useNavigate()
-  const { cart, removeFromCart, updateCartQuantity } = useStorefront()
+  const { cart, removeFromCart } = useStorefront()
 
   const subtotal = cart.reduce((sum, e) => sum + e.unitPriceCents * e.quantity, 0)
   const firstSku = cart[0]?.sku
@@ -46,27 +46,7 @@ export function CartPage() {
                     </div>
 
                     <div className="cart-page__item-actions">
-                      <div className="cart-qty-stepper" role="group" aria-label={`Quantity for ${entry.name}`}>
-                        <button
-                          type="button"
-                          className="cart-qty-stepper__btn"
-                          aria-label="Decrease quantity"
-                          onClick={() => {
-                            if (entry.quantity === 1) {
-                              removeFromCart(entry.sku, entry.intent)
-                            } else {
-                              updateCartQuantity(entry.sku, entry.intent, entry.quantity - 1)
-                            }
-                          }}
-                        >−</button>
-                        <span className="cart-qty-stepper__count">{entry.quantity}</span>
-                        <button
-                          type="button"
-                          className="cart-qty-stepper__btn"
-                          aria-label="Increase quantity"
-                          onClick={() => updateCartQuantity(entry.sku, entry.intent, entry.quantity + 1)}
-                        >+</button>
-                      </div>
+                      <div className="cart-page__quantity-note">1 per checkout</div>
 
                       <button
                         type="button"
@@ -104,7 +84,7 @@ export function CartPage() {
                 </button>
 
                 <p className="cart-page__secure-note">
-                  Stripe-secured · SSL encrypted · Gift-ready presentation
+                  Stripe-secured · SSL encrypted · One collectible per checkout
                 </p>
               </div>
             </div>

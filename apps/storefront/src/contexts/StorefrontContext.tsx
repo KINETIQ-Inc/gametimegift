@@ -82,7 +82,7 @@ function loadStoredCart(): CartEntry[] {
     if (!stored) return []
     const parsed = JSON.parse(stored)
     if (!Array.isArray(parsed)) return []
-    return parsed.filter((entry): entry is CartEntry =>
+    const sanitized = parsed.filter((entry): entry is CartEntry =>
       typeof entry?.sku === 'string' &&
       typeof entry?.name === 'string' &&
       typeof entry?.quantity === 'number' &&
@@ -93,6 +93,12 @@ function loadStoredCart(): CartEntry[] {
           typeof entry.giftDetails?.occasion === 'string' &&
           typeof entry.giftDetails?.note === 'string')),
     )
+
+    const firstEntry = sanitized[0]
+    if (!firstEntry) return []
+
+    // Serialized collectibles currently ship one per checkout.
+    return [{ ...firstEntry, quantity: 1 }]
   } catch {
     return []
   }
@@ -281,42 +287,36 @@ export function StorefrontProvider({ children }: { children: ReactNode }) {
       giftDetails?: GiftIntentDetails,
       quantity = 1,
     ) => {
-      const normalizedQuantity = Number.isFinite(quantity)
-        ? Math.min(9, Math.max(1, Math.floor(quantity)))
-        : 1
+      const normalizedQuantity = Number.isFinite(quantity) ? Math.max(1, Math.floor(quantity)) : 1
 
       setCart((current) => {
-        const existingIndex = current.findIndex(
-          (entry) => entry.sku === product.sku && entry.intent === intent,
-        )
-        if (existingIndex === -1) {
-          return [
-            ...current,
-            {
-              sku: product.sku,
-              name: shortenProductName(product.name),
-              quantity: normalizedQuantity,
-              unitPriceCents: product.retail_price_cents,
-              intent,
-              giftDetails,
-            },
-          ]
+        const existingEntry = current[0]
+        const nextEntry: CartEntry = {
+          sku: product.sku,
+          name: shortenProductName(product.name),
+          quantity: 1,
+          unitPriceCents: product.retail_price_cents,
+          intent,
+          giftDetails,
         }
-        return current.map((entry, index) =>
-          index === existingIndex
-            ? {
-                ...entry,
-                quantity: Math.min(9, entry.quantity + normalizedQuantity),
-                giftDetails: giftDetails ?? entry.giftDetails,
-              }
-            : entry,
-        )
+
+        if (
+          existingEntry &&
+          existingEntry.sku === product.sku &&
+          existingEntry.intent === intent
+        ) {
+          return [{ ...nextEntry, giftDetails: giftDetails ?? existingEntry.giftDetails }]
+        }
+
+        return [nextEntry]
       })
 
       setCartMessage(
-        intent === 'gift'
-          ? `${shortenProductName(product.name)} saved to the gift flow.`
-          : `${shortenProductName(product.name)} added to cart.`,
+        normalizedQuantity > 1
+          ? `${shortenProductName(product.name)} added. Orders currently support one collectible per checkout.`
+          : intent === 'gift'
+            ? `${shortenProductName(product.name)} saved to the gift flow.`
+            : `${shortenProductName(product.name)} added to cart.`,
       )
 
       trackStorefrontEvent('cart_item_added', {
@@ -335,7 +335,7 @@ export function StorefrontProvider({ children }: { children: ReactNode }) {
   const updateCartQuantity = useCallback((sku: string, intent: CartIntent, quantity: number) => {
     if (quantity < 1) return
     setCart((current) =>
-      current.map((e) => e.sku === sku && e.intent === intent ? { ...e, quantity } : e),
+      current.map((e) => e.sku === sku && e.intent === intent ? { ...e, quantity: 1 } : e),
     )
   }, [])
 
