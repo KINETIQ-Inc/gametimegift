@@ -1,7 +1,7 @@
 import type { LicenseBody } from '@gtg/types'
 import { ApiRequestError } from './error'
 import { assertUuidV4 } from './_internal'
-import { invokeFunction } from './transport'
+import { getTableClient, invokeFunction } from './transport'
 
 const VALID_LICENSE_BODIES: LicenseBody[] = ['CLC', 'ARMY', 'NONE']
 
@@ -32,6 +32,17 @@ export interface ListProductsResult {
   total: number
   limit: number
   offset: number
+}
+
+type DirectProductRow = {
+  id: string
+  sku: string
+  name: string
+  school: string | null
+  sport: string | null
+  license_body: LicenseBody
+  retail_price_cents: number
+  created_at: string
 }
 
 export interface CreateProductInput {
@@ -108,6 +119,63 @@ function assertLicenseBody(value: string, fnName: string): asserts value is Lice
 
 export async function listProducts(input: ListProductsInput = {}): Promise<ListProductsResult> {
   return invokeFunction<ListProductsResult>('list-products', input as unknown as Record<string, unknown>, 'listProducts')
+}
+
+async function listProductsDirectly(): Promise<ProductListItem[]> {
+  const client = getTableClient()
+  const { data, error } = await client
+    .from('products')
+    .select('id, sku, name, school, sport, license_body:license_type, retail_price_cents:price, created_at')
+    .eq('active', true)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    throw new ApiRequestError(
+      `[GTG] listProductsWithFallback(): direct query failed: ${error.message}`,
+      'QUERY_ERROR',
+    )
+  }
+
+  return ((data ?? []) as DirectProductRow[]).map((product) => ({
+    id: product.id,
+    sku: product.sku,
+    name: product.name,
+    description: product.sport ? `${product.sport} collectible` : null,
+    school: product.school,
+    license_body: product.license_body,
+    retail_price_cents: product.retail_price_cents,
+    available_count: 1,
+    in_stock: true,
+    created_at: product.created_at,
+    updated_at: product.created_at,
+  }))
+}
+
+export async function listProductsWithFallback(
+  input: ListProductsInput = {},
+): Promise<ListProductsResult> {
+  try {
+    const result = await listProducts(input)
+    if (result.products.length > 0) {
+      return result
+    }
+
+    const products = await listProductsDirectly()
+    return {
+      products,
+      total: products.length,
+      limit: input.limit ?? products.length,
+      offset: input.offset ?? 0,
+    }
+  } catch {
+    const products = await listProductsDirectly()
+    return {
+      products,
+      total: products.length,
+      limit: input.limit ?? products.length,
+      offset: input.offset ?? 0,
+    }
+  }
 }
 
 export async function createProduct(input: CreateProductInput): Promise<ProductRecord> {

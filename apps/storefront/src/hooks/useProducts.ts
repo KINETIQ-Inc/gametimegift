@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { listProducts } from '@gtg/api'
+import { listProductsWithFallback } from '@gtg/api'
 
 export interface StorefrontProduct {
   id: string
@@ -26,10 +26,10 @@ export function useProducts() {
       setError(null)
 
       try {
-        const result = await listProducts({ limit: 120, offset: 0 })
-
-        if (!cancelled) {
+        const result = await listProductsWithFallback({ limit: 120, offset: 0 })
+        if (!cancelled && result.products.length > 0) {
           setProducts(result.products)
+          return
         }
       } catch (err) {
         if (!cancelled) {

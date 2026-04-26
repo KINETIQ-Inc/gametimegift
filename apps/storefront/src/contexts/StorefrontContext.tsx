@@ -21,7 +21,7 @@ import {
   type ReactNode,
 } from 'react'
 import {
-  listProducts,
+  listProductsWithFallback,
   type ProductListItem,
 } from '@gtg/api'
 import { getEnv } from '@gtg/config'
@@ -176,14 +176,18 @@ export function StorefrontProvider({ children }: { children: ReactNode }) {
       setLoading(true)
       setError(null)
       try {
-        const result = await listProducts({ limit: 120, offset: 0 })
+        const result = await listProductsWithFallback({ limit: 120, offset: 0 })
         if (result.products.length > 0) {
           setProducts(result.products)
-        } else if (appEnv !== 'production') {
+          return
+        }
+
+        if (appEnv !== 'production') {
           setProducts(DEV_MOCK_STOREFRONT_PRODUCTS)
         }
       } catch (err) {
         setError(err instanceof Error ? err : new Error('Failed to load products'))
+
         if (appEnv !== 'production') {
           setProducts(DEV_MOCK_STOREFRONT_PRODUCTS)
         }
