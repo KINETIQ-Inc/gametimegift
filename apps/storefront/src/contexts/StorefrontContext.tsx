@@ -154,6 +154,7 @@ export interface StorefrontContextValue {
     product: ProductListItem,
     intent: CartIntent,
     giftDetails?: GiftIntentDetails,
+    quantity?: number,
   ) => void
   removeFromCart: (sku: string, intent: CartIntent) => void
   updateCartQuantity: (sku: string, intent: CartIntent, quantity: number) => void
@@ -274,7 +275,16 @@ export function StorefrontProvider({ children }: { children: ReactNode }) {
   // ── Handlers ──────────────────────────────────────────────
 
   const addProductToCart = useCallback(
-    (product: ProductListItem, intent: CartIntent, giftDetails?: GiftIntentDetails) => {
+    (
+      product: ProductListItem,
+      intent: CartIntent,
+      giftDetails?: GiftIntentDetails,
+      quantity = 1,
+    ) => {
+      const normalizedQuantity = Number.isFinite(quantity)
+        ? Math.min(9, Math.max(1, Math.floor(quantity)))
+        : 1
+
       setCart((current) => {
         const existingIndex = current.findIndex(
           (entry) => entry.sku === product.sku && entry.intent === intent,
@@ -285,7 +295,7 @@ export function StorefrontProvider({ children }: { children: ReactNode }) {
             {
               sku: product.sku,
               name: shortenProductName(product.name),
-              quantity: 1,
+              quantity: normalizedQuantity,
               unitPriceCents: product.retail_price_cents,
               intent,
               giftDetails,
@@ -294,7 +304,11 @@ export function StorefrontProvider({ children }: { children: ReactNode }) {
         }
         return current.map((entry, index) =>
           index === existingIndex
-            ? { ...entry, quantity: entry.quantity + 1, giftDetails: giftDetails ?? entry.giftDetails }
+            ? {
+                ...entry,
+                quantity: Math.min(9, entry.quantity + normalizedQuantity),
+                giftDetails: giftDetails ?? entry.giftDetails,
+              }
             : entry,
         )
       })

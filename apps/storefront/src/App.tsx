@@ -81,7 +81,6 @@ export default function App() {
               </RequireCustomerAccount>
             )}
           />
-          <Route path="/:slug" element={<InfoPage />} />
 
           {/* Cart */}
           <Route path="/cart" element={<CartPage />} />
@@ -95,6 +94,9 @@ export default function App() {
               </Suspense>
             }
           />
+
+          {/* Marketing/info pages — keep after concrete app routes */}
+          <Route path="/:slug" element={<InfoPage />} />
 
           {/* Catch-all → home */}
           <Route path="*" element={<Navigate to="/" replace />} />

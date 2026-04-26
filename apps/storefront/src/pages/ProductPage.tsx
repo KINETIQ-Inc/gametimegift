@@ -283,7 +283,7 @@ function ProductDetail({
 }: {
   product: ProductListItem
   onCheckout: (options: CheckoutOptions) => void
-  onAddToCart: () => void
+  onAddToCart: (quantity: number) => void
   onGiftFlow: () => void
   cartCount: number
   checkoutEnabled: boolean
@@ -295,6 +295,7 @@ function ProductDetail({
   const [bundlePanelOpen, setBundlePanelOpen] = useState(false)
   const [bundle, setBundle] = useState<PurchaseBundle>('vase')
   const [flowerOption, setFlowerOption] = useState<FlowerOption>('roses')
+  const [quantity, setQuantity] = useState(1)
 
   const bundleOptions: Array<{
     id: PurchaseBundle
@@ -379,16 +380,38 @@ function ProductDetail({
             <div className="product-detail-buy">
               <div className="product-detail-meta">
                 <div>
-                  <span className="meta-label">Availability</span>
-                  <strong>
-                    {product.in_stock
-                      ? 'Ready to ship'
-                      : 'Currently unavailable'}
-                  </strong>
+                  <span className="meta-label">Quantity</span>
+                  {product.in_stock ? (
+                    <div className="product-detail-qty-stepper" role="group" aria-label={`Quantity for ${productLabel}`}>
+                      <button
+                        type="button"
+                        className="product-detail-qty-stepper__btn"
+                        aria-label="Decrease quantity"
+                        onClick={() => setQuantity((current) => Math.max(1, current - 1))}
+                      >
+                        -
+                      </button>
+                      <span className="product-detail-qty-stepper__count">{quantity}</span>
+                      <button
+                        type="button"
+                        className="product-detail-qty-stepper__btn"
+                        aria-label="Increase quantity"
+                        onClick={() => setQuantity((current) => Math.min(9, current + 1))}
+                      >
+                        +
+                      </button>
+                    </div>
+                  ) : (
+                    <strong>Currently unavailable</strong>
+                  )}
+                  {product.in_stock ? (
+                    <span className="product-detail-meta-note">Ready to ship</span>
+                  ) : null}
                 </div>
                 <div>
                   <span className="meta-label">Price</span>
                   <strong>{formatUsdCents(product.retail_price_cents)}</strong>
+                  <span className="product-detail-meta-note">Per collectible</span>
                 </div>
               </div>
 
@@ -496,8 +519,8 @@ function ProductDetail({
                       <Button variant="gold" size="lg" onClick={handleBuyNow} disabled={!checkoutEnabled}>
                         {bundlePanelOpen ? 'Continue to Checkout' : 'Buy Now'}
                       </Button>
-                      <Button variant="primary" size="lg" onClick={onAddToCart}>
-                        Add to Cart
+                      <Button variant="primary" size="lg" onClick={() => onAddToCart(quantity)}>
+                        Add {quantity} to Cart
                       </Button>
                     </div>
                     <Button variant="ghost" size="md" onClick={onGiftFlow}>
@@ -650,7 +673,7 @@ export function ProductPage() {
               })
               navigate(buildCheckoutPath(product, activeReferralCode, options))
             }}
-            onAddToCart={() => addProductToCart(product, 'cart')}
+            onAddToCart={(quantity) => addProductToCart(product, 'cart', undefined, quantity)}
             onGiftFlow={handleGiftFlow}
           />
         ) : (
