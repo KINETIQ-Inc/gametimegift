@@ -7748,6 +7748,7 @@ body {
   padding: 0 0 calc(6rem + env(safe-area-inset-bottom, 0px));
   background:
     radial-gradient(circle at top left, rgba(214, 188, 134, 0.18), transparent 28%),
+    radial-gradient(circle at 100% 0%, rgba(24, 48, 95, 0.08), transparent 24%),
     linear-gradient(180deg, #fffaf4 0%, #ffffff 38%);
 }
 
@@ -7770,9 +7771,17 @@ body {
   padding: 2rem;
   border-radius: 1.5rem;
   background:
-    linear-gradient(140deg, rgba(10, 36, 84, 0.94), rgba(21, 57, 117, 0.88)),
-    #12305f;
-  color: #f8fbff;
+    radial-gradient(circle at top right, rgba(210, 189, 148, 0.16), rgba(210, 189, 148, 0) 30%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 242, 235, 0.98));
+  color: #12284a;
+}
+
+.account-hero__copy h1 {
+  margin: 0;
+  color: #12284a;
+  letter-spacing: -0.04em;
+  line-height: 0.95;
+  font-size: clamp(2.5rem, 5vw, 4.75rem);
 }
 
 .account-hero__eyebrow {
@@ -7781,7 +7790,7 @@ body {
   font-weight: 800;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: rgba(246, 217, 158, 0.92);
+  color: #a97316;
 }
 
 .account-hero__intro {
@@ -7789,13 +7798,15 @@ body {
   max-width: 42rem;
   font-size: 1.02rem;
   line-height: 1.7;
-  color: rgba(240, 245, 255, 0.92);
+  color: #5f6d82;
 }
 
 .account-hero__panel {
   padding: 1.35rem;
   border-radius: 1.25rem;
-  background: rgba(255, 255, 255, 0.92);
+  background:
+    radial-gradient(circle at top right, rgba(24, 48, 95, 0.06), rgba(24, 48, 95, 0) 34%),
+    rgba(255, 255, 255, 0.94);
   display: grid;
   gap: 1rem;
 }
@@ -7808,21 +7819,32 @@ body {
 .account-hero__nav a {
   padding: 0.78rem 0.95rem;
   border-radius: 999px;
-  background: rgba(11, 36, 84, 0.05);
+  background: rgba(17, 39, 77, 0.04);
   color: #17325f;
   text-decoration: none;
   font-weight: 700;
+  border: 1px solid rgba(17, 39, 77, 0.08);
+  transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.account-hero__nav a:hover {
+  background: rgba(214, 188, 134, 0.18);
+  border-color: rgba(169, 115, 22, 0.18);
+  transform: translateY(-1px);
 }
 
 .account-hero__nav a.is-active {
   background: #12305f;
   color: #ffffff;
+  border-color: transparent;
 }
 
 .account-card {
   padding: 1.6rem;
   border-radius: 1.5rem;
-  background: rgba(255, 255, 255, 0.96);
+  background:
+    radial-gradient(circle at top right, rgba(220, 211, 197, 0.15), rgba(220, 211, 197, 0) 26%),
+    rgba(255, 255, 255, 0.97);
 }
 
 .account-form-shell {
@@ -7840,16 +7862,18 @@ body {
   appearance: none;
   border: 1px solid rgba(17, 39, 77, 0.14);
   border-radius: 999px;
-  background: rgba(17, 39, 77, 0.04);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 242, 237, 0.96));
   color: #16305c;
   padding: 0.7rem 1rem;
   font-weight: 700;
   cursor: pointer;
+  box-shadow: 0 8px 18px rgba(24, 40, 72, 0.06);
 }
 
 .account-form-switch button.is-active {
   background: #12305f;
   color: #fff;
+  border-color: transparent;
 }
 
 .account-form {
@@ -7870,11 +7894,20 @@ body {
   min-width: 0;
   border-radius: 0.95rem;
   border: 1px solid rgba(17, 39, 77, 0.14);
-  background: #fff;
+  background: rgba(255, 255, 255, 0.98);
   padding: 0.9rem 1rem;
   font: inherit;
   color: #142947;
   scroll-margin-block: 7rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.account-form input:focus {
+  outline: none;
+  border-color: rgba(18, 48, 95, 0.42);
+  box-shadow:
+    0 0 0 3px rgba(18, 48, 95, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
 }
 
 .account-form input[readonly] {
@@ -7909,7 +7942,8 @@ body {
 .account-empty-state {
   padding: 1rem 1.1rem;
   border-radius: 1rem;
-  background: rgba(213, 224, 241, 0.22);
+  background: linear-gradient(180deg, rgba(248, 243, 236, 0.92), rgba(255, 255, 255, 0.96));
+  border: 1px solid rgba(214, 188, 134, 0.22);
   color: #16305c;
 }
 
@@ -7997,6 +8031,10 @@ body {
   .account-card {
     padding: 1.15rem;
     border-radius: 1.1rem;
+  }
+
+  .account-hero__copy h1 {
+    font-size: clamp(2.2rem, 11vw, 3.4rem);
   }
 
   .account-form-switch {

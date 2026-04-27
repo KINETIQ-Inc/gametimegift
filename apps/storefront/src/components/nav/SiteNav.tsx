@@ -20,7 +20,7 @@ interface SiteNavProps {
 
 export function SiteNav({ mode = 'light' }: SiteNavProps) {
   const { cartCount, checkoutEnabled } = useStorefront()
-  const { isCustomer } = useStorefrontSession()
+  const { isAuthenticated } = useStorefrontSession()
   const [menuOpen, setMenuOpen] = useState(false)
 
   useEffect(() => {
@@ -64,11 +64,11 @@ export function SiteNav({ mode = 'light' }: SiteNavProps) {
         <li><Link to="/consultant" className="site-nav__link" onClick={() => setMenuOpen(false)}>Consultants</Link></li>
         <li>
           <Link
-            to={isCustomer ? '/account/orders' : '/account/sign-in'}
+            to={isAuthenticated ? '/account/profile' : '/account/sign-in'}
             className="site-nav__link"
             onClick={() => setMenuOpen(false)}
           >
-            {isCustomer ? 'Account' : 'Sign In'}
+            {isAuthenticated ? 'Account' : 'Sign In'}
           </Link>
         </li>
       </ul>
