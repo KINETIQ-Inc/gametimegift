@@ -5197,13 +5197,19 @@ input {
 
 @media (max-width: 720px) {
   .checkout-page-layout {
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
     gap: 2rem;
   }
 
+  .checkout-page-form-col {
+    order: 1;
+  }
+
   .checkout-page-product {
-    position: static;
-    top: auto;
+    order: 2;
+    position: static !important;
+    top: auto !important;
   }
 }
 
