@@ -226,7 +226,29 @@ export function ShopPage() {
       return normalizeQueryValue(product.school ?? '').includes(normalizeQueryValue(schoolTerm))
     })
     .filter((product) => matchesConference(product, conferenceFilter))
-  const deferredProducts = useDeferredValue(filteredProducts)
+  const sportAgnosticFilteredProducts = filterProducts(
+    products,
+    licenseFilter as LicenseFilter,
+    'ALL',
+  )
+    .filter((product) => matchesSearchQuery(product, searchTerm))
+    .filter((product) => {
+      if (!schoolTerm.trim()) return true
+      return normalizeQueryValue(product.school ?? '').includes(normalizeQueryValue(schoolTerm))
+    })
+    .filter((product) => matchesConference(product, conferenceFilter))
+
+  const usingBasketballCatalogFallback =
+    licenseFilter === 'CLC' &&
+    sportFilter === 'BASKETBALL' &&
+    filteredProducts.length === 0 &&
+    sportAgnosticFilteredProducts.length > 0
+
+  const visibleProducts = usingBasketballCatalogFallback
+    ? sportAgnosticFilteredProducts
+    : filteredProducts
+
+  const deferredProducts = useDeferredValue(visibleProducts)
   const activeSportLabel = SPORT_TABS.find((tab) => tab.value === sportFilter)?.label ?? 'All Sports'
   const activeLicenseLabel = LICENSE_TABS.find((tab) => tab.value === licenseFilter)?.label ?? 'All Collections'
   const hasActiveFilters =
@@ -465,6 +487,12 @@ export function ShopPage() {
                 </button>
               </div>
             ) : null}
+
+            {usingBasketballCatalogFallback ? (
+              <div className="shop-filter-bar__active" aria-live="polite">
+                <span className="shop-filter-pill">Showing NCAA catalog while basketball products are being added</span>
+              </div>
+            ) : null}
           </div>
         </section>
 
@@ -483,7 +511,9 @@ export function ShopPage() {
                 <h2 className="shop-grid-head__title">Browse the collection</h2>
               </div>
               <p className="shop-grid-head__body">
-                Compare the available pieces, review the presentation, and choose the school and sport mix that fits the moment best.
+                {usingBasketballCatalogFallback
+                  ? 'The basketball browse path is live. Until the new BB products are loaded, this view is showing the matching NCAA catalog for the selected school and conference filters.'
+                  : 'Compare the available pieces, review the presentation, and choose the school and sport mix that fits the moment best.'}
               </p>
             </div>
           ) : null}
