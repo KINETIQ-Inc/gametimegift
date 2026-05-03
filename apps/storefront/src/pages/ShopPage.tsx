@@ -15,14 +15,17 @@
  * URL parameters (read on mount, reflected in filters):
  *   ?sport=FOOTBALL|BASKETBALL|SOCCER|BASEBALL|HOCKEY
  *   ?license=CLC|ARMY
+ *   ?search=<term>
+ *   ?school=<official school name>
  */
 
-import { lazy, startTransition, Suspense, useDeferredValue, useEffect, useRef } from 'react'
+import { lazy, startTransition, Suspense, useDeferredValue, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Button, Heading } from '@gtg/ui'
 import { formatUsdCents } from '@gtg/utils'
 import { type ProductListItem } from '@gtg/api'
 import { trackStorefrontEvent } from '../analytics'
+import { NCAA_CONFERENCE_GROUPS } from '../config/mega-nav'
 import { useStorefront } from '../contexts/useStorefront'
 import { SiteNav } from '../components/nav/SiteNav'
 import {
@@ -64,10 +67,15 @@ const LICENSE_TABS = [
 ] as const
 
 const GIFTING_PROMISES = [
-  'Curated football inventory',
-  'Officially licensed',
-  'Verified and display-ready',
+  'Officially licensed programs',
+  'Gift-ready display pieces',
+  'Verified and ready to ship',
 ] as const
+
+const CONFERENCE_TABS = NCAA_CONFERENCE_GROUPS.map((group) => ({
+  value: group.label,
+  label: group.label,
+})) as const
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -89,6 +97,82 @@ function DeferredFallback({ minHeight = 160 }: { minHeight?: number }) {
   return <div style={{ minHeight }} aria-hidden="true" />
 }
 
+function normalizeQueryValue(value: string): string {
+  return value.trim().toLowerCase()
+}
+
+function normalizeSchoolIdentity(value: string): string {
+  return normalizeQueryValue(value)
+    .replace(/^the\s+/i, '')
+    .replace(/&/g, 'and')
+    .replace(/[.'’]/g, '')
+    .replace(/\s+/g, ' ')
+}
+
+function matchesSearchQuery(product: ProductListItem, query: string): boolean {
+  const normalizedQuery = normalizeQueryValue(query)
+  if (!normalizedQuery) return true
+
+  const haystack = [
+    product.name,
+    product.school ?? '',
+    product.sku,
+    product.description ?? '',
+  ]
+    .join(' ')
+    .toLowerCase()
+
+  return haystack.includes(normalizedQuery)
+}
+
+function matchesConference(product: ProductListItem, conference: string): boolean {
+  if (!conference.trim()) return true
+
+  const group = NCAA_CONFERENCE_GROUPS.find(
+    (candidate) => normalizeQueryValue(candidate.label) === normalizeQueryValue(conference),
+  )
+  if (!group) return true
+
+  const normalizedHaystack = normalizeSchoolIdentity([
+    product.school ?? '',
+    product.name,
+    product.description ?? '',
+  ].join(' '))
+
+  return group.teams.some((team) => {
+    const candidates = [team.label, ...(team.aliases ?? [])].map(normalizeSchoolIdentity)
+    return candidates.some((candidate) => normalizedHaystack.includes(candidate))
+  })
+}
+
+function getSportHeadline(sportFilter: string): string {
+  switch (sportFilter) {
+    case 'BASKETBALL':
+      return 'A cleaner way to shop NCAA basketball gifts.'
+    case 'FOOTBALL':
+      return 'A cleaner way to shop football gifts.'
+    case 'BASEBALL':
+      return 'A cleaner way to shop baseball gifts.'
+    case 'HOCKEY':
+      return 'A cleaner way to shop hockey gifts.'
+    case 'SOCCER':
+      return 'A cleaner way to shop soccer gifts.'
+    default:
+      return 'A quieter, sharper way to browse the inventory.'
+  }
+}
+
+function getInventoryLabel(sportFilter: string, licenseFilter: string): string {
+  if (licenseFilter === 'CLC' && sportFilter === 'BASKETBALL') {
+    return 'NCAA basketball inventory'
+  }
+  if (licenseFilter === 'CLC') return 'NCAA inventory'
+  if (licenseFilter === 'ARMY') return 'Military inventory'
+  if (sportFilter === 'BASKETBALL') return 'Basketball inventory'
+  if (sportFilter === 'FOOTBALL') return 'Football inventory'
+  return 'Collection inventory'
+}
+
 // ── ShopPage ──────────────────────────────────────────────────
 
 export function ShopPage() {
@@ -104,12 +188,18 @@ export function ShopPage() {
     setSportFilter,
   } = useStorefront()
   const gridRef = useRef<HTMLElement | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [schoolTerm, setSchoolTerm] = useState('')
+  const [conferenceFilter, setConferenceFilter] = useState('')
 
   // Read URL params on mount to pre-set filters
   useEffect(() => {
     const params = new URLSearchParams(location.search)
     const sport = params.get('sport')?.toUpperCase()
     const license = params.get('license')?.toUpperCase()
+    const search = params.get('search')?.trim() ?? ''
+    const school = params.get('school')?.trim() ?? ''
+    const conference = params.get('conference')?.trim() ?? ''
 
     const validSports: string[] = ['FOOTBALL', 'BASKETBALL', 'SOCCER', 'BASEBALL', 'HOCKEY']
     const validLicenses: string[] = ['CLC', 'ARMY']
@@ -120,6 +210,9 @@ export function ShopPage() {
     if (license && validLicenses.includes(license)) {
       setLicenseFilter(license)
     }
+    setSearchTerm(search)
+    setSchoolTerm(school)
+    setConferenceFilter(conference)
   }, [location.search, setSportFilter, setLicenseFilter])
 
   const filteredProducts = filterProducts(
@@ -127,18 +220,44 @@ export function ShopPage() {
     licenseFilter as LicenseFilter,
     sportFilter as SportFilter,
   )
+    .filter((product) => matchesSearchQuery(product, searchTerm))
+    .filter((product) => {
+      if (!schoolTerm.trim()) return true
+      return normalizeQueryValue(product.school ?? '').includes(normalizeQueryValue(schoolTerm))
+    })
+    .filter((product) => matchesConference(product, conferenceFilter))
   const deferredProducts = useDeferredValue(filteredProducts)
   const activeSportLabel = SPORT_TABS.find((tab) => tab.value === sportFilter)?.label ?? 'All Sports'
   const activeLicenseLabel = LICENSE_TABS.find((tab) => tab.value === licenseFilter)?.label ?? 'All Collections'
-  const hasActiveFilters = sportFilter !== 'ALL' || licenseFilter !== 'ALL'
+  const hasActiveFilters =
+    sportFilter !== 'ALL' ||
+    licenseFilter !== 'ALL' ||
+    searchTerm.trim().length > 0 ||
+    schoolTerm.trim().length > 0 ||
+    conferenceFilter.trim().length > 0
 
-  function syncShopQuery(nextSport: string, nextLicense: string): void {
+  function syncShopQuery(
+    nextSport: string,
+    nextLicense: string,
+    nextSearchTerm = searchTerm,
+    nextSchoolTerm = schoolTerm,
+    nextConferenceFilter = conferenceFilter,
+  ): void {
     const params = new URLSearchParams()
     if (nextSport !== 'ALL') {
       params.set('sport', nextSport)
     }
     if (nextLicense !== 'ALL') {
       params.set('license', nextLicense)
+    }
+    if (nextSearchTerm.trim()) {
+      params.set('search', nextSearchTerm.trim())
+    }
+    if (nextSchoolTerm.trim()) {
+      params.set('school', nextSchoolTerm.trim())
+    }
+    if (nextConferenceFilter.trim()) {
+      params.set('conference', nextConferenceFilter.trim())
     }
 
     const nextSearch = params.toString()
@@ -159,7 +278,7 @@ export function ShopPage() {
     startTransition(() => {
       setSportFilter(sport)
     })
-    syncShopQuery(sport, licenseFilter)
+    syncShopQuery(sport, licenseFilter, searchTerm, schoolTerm, conferenceFilter)
     scrollToInventoryWall()
     trackStorefrontEvent('catalog_filter_changed', { sportFilter: sport, licenseFilter })
   }
@@ -168,9 +287,21 @@ export function ShopPage() {
     startTransition(() => {
       setLicenseFilter(license)
     })
-    syncShopQuery(sportFilter, license)
+    syncShopQuery(sportFilter, license, searchTerm, schoolTerm, conferenceFilter)
     scrollToInventoryWall()
     trackStorefrontEvent('catalog_filter_changed', { sportFilter, licenseFilter: license })
+  }
+
+  function applySearchFilters(): void {
+    syncShopQuery(sportFilter, licenseFilter, searchTerm, schoolTerm, conferenceFilter)
+    scrollToInventoryWall()
+    trackStorefrontEvent('catalog_filter_changed', {
+      sportFilter,
+      licenseFilter,
+      searchTerm: searchTerm.trim() || null,
+      schoolTerm: schoolTerm.trim() || null,
+      conferenceFilter: conferenceFilter.trim() || null,
+    })
   }
 
   return (
@@ -185,9 +316,9 @@ export function ShopPage() {
           <div className="shop-header__shell">
             <div className="shop-header__copy">
               <p className="shop-header__eyebrow">Shop the Collection</p>
-              <Heading as="h1" display={false}>A quieter, sharper way to browse the inventory.</Heading>
+              <Heading as="h1" display={false}>{getSportHeadline(sportFilter)}</Heading>
               <p className="shop-header__subtitle">
-                Built like a premium buying floor for comparing pieces, refining options, and choosing the right format.
+                Built like a premium buying floor for comparing programs, narrowing the NCAA search, and moving fast once the right piece shows up.
               </p>
 
               <div className="shop-header__status-row" aria-label="Collection status">
@@ -197,7 +328,7 @@ export function ShopPage() {
                   <span className="shop-header__status-meta">{activeLicenseLabel}</span>
                 </div>
                 <div className="shop-header__status-card">
-                  <span className="shop-header__status-label">Inventory</span>
+                  <span className="shop-header__status-label">{getInventoryLabel(sportFilter, licenseFilter)}</span>
                   <strong className="shop-header__status-value">
                     {loading ? 'Loading' : `${deferredProducts.length}`}
                   </strong>
@@ -223,8 +354,52 @@ export function ShopPage() {
           <div className="shop-filter-bar__shell">
             <div className="shop-filter-bar__intro">
               <p className="shop-filter-bar__label">Refine the collection</p>
-              <p className="shop-filter-bar__hint">Filter fast, compare cleanly, and move straight into purchase.</p>
+              <p className="shop-filter-bar__hint">Filter by sport, narrow NCAA schools, and move straight into the right gift.</p>
             </div>
+
+            <form
+              className="shop-search-bar"
+              onSubmit={(event) => {
+                event.preventDefault()
+                applySearchFilters()
+              }}
+            >
+              <label className="shop-search-field">
+                <span className="shop-search-label">Search</span>
+                <input
+                  type="search"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder="Search by school, SKU, or product name"
+                />
+              </label>
+              <label className="shop-search-field">
+                <span className="shop-search-label">NCAA school</span>
+                <input
+                  type="text"
+                  value={schoolTerm}
+                  onChange={(event) => setSchoolTerm(event.target.value)}
+                  placeholder="University of Florida"
+                />
+              </label>
+              <label className="shop-search-field">
+                <span className="shop-search-label">Conference</span>
+                <select
+                  value={conferenceFilter}
+                  onChange={(event) => setConferenceFilter(event.target.value)}
+                >
+                  <option value="">All conferences</option>
+                  {CONFERENCE_TABS.map((conference) => (
+                    <option key={conference.value} value={conference.value}>
+                      {conference.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <Button type="submit" variant="secondary">
+                Search
+              </Button>
+            </form>
 
             {/* Sport tabs */}
             <div
@@ -268,6 +443,9 @@ export function ShopPage() {
               <div className="shop-filter-bar__active" aria-live="polite">
                 <span className="shop-filter-pill">Sport: {activeSportLabel}</span>
                 <span className="shop-filter-pill">Collection: {activeLicenseLabel}</span>
+                {conferenceFilter ? (
+                  <span className="shop-filter-pill">Conference: {conferenceFilter}</span>
+                ) : null}
                 <button
                   type="button"
                   className="shop-filter-clear"
@@ -276,7 +454,10 @@ export function ShopPage() {
                       setSportFilter('ALL')
                       setLicenseFilter('ALL')
                     })
-                    syncShopQuery('ALL', 'ALL')
+                    setSearchTerm('')
+                    setSchoolTerm('')
+                    setConferenceFilter('')
+                    syncShopQuery('ALL', 'ALL', '', '', '')
                     scrollToInventoryWall()
                   }}
                 >
@@ -302,7 +483,7 @@ export function ShopPage() {
                 <h2 className="shop-grid-head__title">Browse the collection</h2>
               </div>
               <p className="shop-grid-head__body">
-                Compare the available pieces, review the presentation, and choose the format that fits the moment best.
+                Compare the available pieces, review the presentation, and choose the school and sport mix that fits the moment best.
               </p>
             </div>
           ) : null}
@@ -363,7 +544,10 @@ export function ShopPage() {
                     setSportFilter('ALL')
                     setLicenseFilter('ALL')
                   })
-                  syncShopQuery('ALL', 'ALL')
+                  setSearchTerm('')
+                  setSchoolTerm('')
+                  setConferenceFilter('')
+                  syncShopQuery('ALL', 'ALL', '', '', '')
                   scrollToInventoryWall()
                 }}
               >

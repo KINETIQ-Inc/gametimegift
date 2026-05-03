@@ -40,6 +40,11 @@ export interface SeasonalSpotlight {
   href: string
 }
 
+export interface ConferenceSchoolMatcher {
+  label: string
+  aliases?: string[]
+}
+
 export interface MegaNavTab {
   id: NavTabId
   label: string
@@ -56,6 +61,74 @@ export interface MegaNavTab {
   giftTypes: GiftTypeLink[]
   seasonal: SeasonalSpotlight
 }
+
+function buildShopHref(params: Record<string, string>): string {
+  const search = new URLSearchParams(params)
+  return `/shop?${search.toString()}`
+}
+
+export const NCAA_CONFERENCE_GROUPS: readonly {
+  label: string
+  teams: readonly ConferenceSchoolMatcher[]
+}[] = [
+  {
+    label: 'SEC',
+    teams: [
+      { label: 'The University of Alabama', aliases: ['University of Alabama', 'Alabama'] },
+      { label: 'Louisiana State University', aliases: ['LSU'] },
+      { label: 'University of Florida', aliases: ['Florida', 'Florida Gators'] },
+      { label: 'University of Oklahoma', aliases: ['Oklahoma', 'OU'] },
+      { label: 'University of South Carolina', aliases: ['South Carolina'] },
+    ],
+  },
+  {
+    label: 'Big Ten',
+    teams: [
+      { label: 'Michigan State University', aliases: ['Michigan State', 'MSU'] },
+      { label: 'Pennsylvania State University', aliases: ['Penn State University', 'Penn State', 'PSU'] },
+      { label: 'University of Maryland', aliases: ['Maryland', 'UMD'] },
+    ],
+  },
+  {
+    label: 'ACC',
+    teams: [
+      { label: 'Clemson University', aliases: ['Clemson'] },
+      { label: 'Florida State University', aliases: ['Florida State', 'FSU'] },
+      { label: 'University of Louisville', aliases: ['Louisville', 'UL'] },
+    ],
+  },
+  {
+    label: 'Big 12',
+    teams: [
+      { label: 'Arizona State University', aliases: ['Arizona State', 'ASU'] },
+    ],
+  },
+  {
+    label: 'SWAC',
+    teams: [
+      { label: 'Jackson State University', aliases: ['Jackson State', 'JSU'] },
+      { label: 'Southern University', aliases: ['Southern'] },
+    ],
+  },
+  {
+    label: 'MEAC',
+    teams: [
+      { label: 'Coppin State' },
+      { label: 'Howard University', aliases: ['Howard'] },
+      { label: 'North Carolina A&T State University', aliases: ['North Carolina A&T', 'North Carolina A and T', 'NCAT'] },
+    ],
+  },
+  {
+    label: 'Independent / Other',
+    teams: [
+      { label: 'Eastern Michigan University', aliases: ['Eastern Michigan', 'EMU'] },
+      { label: 'Tennessee State University', aliases: ['Tennessee State', 'TSU'] },
+      { label: 'Texas A&M', aliases: ['Texas A&M University', 'Texas AM', 'TAMU'] },
+      { label: 'United States Naval Academy', aliases: ['Navy', 'Naval Academy'] },
+      { label: 'University of Mississippi', aliases: ['Ole Miss', 'Mississippi'] },
+    ],
+  },
+] as const
 
 // Phase 2 IA data source for the storefront mega nav.
 // Phase 3 UI should render directly from this config.
@@ -126,103 +199,51 @@ export const MEGA_NAV_TABS: readonly MegaNavTab[] = [
     audience: 'all',
     productFilters: { license_body: 'CLC' },
     teams: [
-      { label: 'The University of Alabama', href: '#catalog?license=CLC' },
-      { label: 'Arizona State University', href: '#catalog?license=CLC' },
-      { label: 'Clemson University', href: '#catalog?license=CLC' },
-      { label: 'Coppin State', href: '#catalog?license=CLC' },
-      { label: 'Eastern Michigan University', href: '#catalog?license=CLC' },
-      { label: 'Florida State University', href: '#catalog?license=CLC' },
-      { label: 'Howard University', href: '#catalog?license=CLC' },
-      { label: 'Jackson State University', href: '#catalog?license=CLC' },
-      { label: 'Louisiana State University', href: '#catalog?license=CLC' },
-      { label: 'Michigan State University', href: '#catalog?license=CLC' },
-      { label: 'North Carolina A&T State University', href: '#catalog?license=CLC' },
-      { label: 'Pennsylvania State University', href: '#catalog?license=CLC' },
-      { label: 'Southern University', href: '#catalog?license=CLC' },
-      { label: 'Tennessee State University', href: '#catalog?license=CLC' },
-      { label: 'Texas A&M', href: '#catalog?license=CLC' },
-      { label: 'United States Naval Academy', href: '#catalog?license=CLC' },
-      { label: 'University of Florida', href: '#catalog?license=CLC' },
-      { label: 'University of Louisville', href: '#catalog?license=CLC' },
-      { label: 'University of Maryland', href: '#catalog?license=CLC' },
-      { label: 'University of Mississippi', href: '#catalog?license=CLC' },
-      { label: 'University of Oklahoma', href: '#catalog?license=CLC' },
-      { label: 'University of South Carolina', href: '#catalog?license=CLC' },
+      { label: 'The University of Alabama', href: buildShopHref({ license: 'CLC', sport: 'BASKETBALL', school: 'The University of Alabama' }) },
+      { label: 'Arizona State University', href: buildShopHref({ license: 'CLC', sport: 'BASKETBALL', school: 'Arizona State University' }) },
+      { label: 'Clemson University', href: buildShopHref({ license: 'CLC', sport: 'BASKETBALL', school: 'Clemson University' }) },
+      { label: 'Coppin State', href: buildShopHref({ license: 'CLC', sport: 'BASKETBALL', school: 'Coppin State' }) },
+      { label: 'Eastern Michigan University', href: buildShopHref({ license: 'CLC', sport: 'BASKETBALL', school: 'Eastern Michigan University' }) },
+      { label: 'Florida State University', href: buildShopHref({ license: 'CLC', sport: 'BASKETBALL', school: 'Florida State University' }) },
+      { label: 'Howard University', href: buildShopHref({ license: 'CLC', sport: 'BASKETBALL', school: 'Howard University' }) },
+      { label: 'Jackson State University', href: buildShopHref({ license: 'CLC', sport: 'BASKETBALL', school: 'Jackson State University' }) },
+      { label: 'Louisiana State University', href: buildShopHref({ license: 'CLC', sport: 'BASKETBALL', school: 'Louisiana State University' }) },
+      { label: 'Michigan State University', href: buildShopHref({ license: 'CLC', sport: 'BASKETBALL', school: 'Michigan State University' }) },
+      { label: 'North Carolina A&T State University', href: buildShopHref({ license: 'CLC', sport: 'BASKETBALL', school: 'North Carolina A&T State University' }) },
+      { label: 'Pennsylvania State University', href: buildShopHref({ license: 'CLC', sport: 'BASKETBALL', school: 'Pennsylvania State University' }) },
+      { label: 'Southern University', href: buildShopHref({ license: 'CLC', sport: 'BASKETBALL', school: 'Southern University' }) },
+      { label: 'Tennessee State University', href: buildShopHref({ license: 'CLC', sport: 'BASKETBALL', school: 'Tennessee State University' }) },
+      { label: 'Texas A&M', href: buildShopHref({ license: 'CLC', sport: 'BASKETBALL', school: 'Texas A&M' }) },
+      { label: 'United States Naval Academy', href: buildShopHref({ license: 'CLC', sport: 'BASKETBALL', school: 'United States Naval Academy' }) },
+      { label: 'University of Florida', href: buildShopHref({ license: 'CLC', sport: 'BASKETBALL', school: 'University of Florida' }) },
+      { label: 'University of Louisville', href: buildShopHref({ license: 'CLC', sport: 'BASKETBALL', school: 'University of Louisville' }) },
+      { label: 'University of Maryland', href: buildShopHref({ license: 'CLC', sport: 'BASKETBALL', school: 'University of Maryland' }) },
+      { label: 'University of Mississippi', href: buildShopHref({ license: 'CLC', sport: 'BASKETBALL', school: 'University of Mississippi' }) },
+      { label: 'University of Oklahoma', href: buildShopHref({ license: 'CLC', sport: 'BASKETBALL', school: 'University of Oklahoma' }) },
+      { label: 'University of South Carolina', href: buildShopHref({ license: 'CLC', sport: 'BASKETBALL', school: 'University of South Carolina' }) },
     ],
-    conferences: [
-      {
-        label: 'SEC',
-        teams: [
-          { label: 'The University of Alabama', href: '#catalog?license=CLC&conference=SEC' },
-          { label: 'Louisiana State University', href: '#catalog?license=CLC&conference=SEC' },
-          { label: 'University of Florida', href: '#catalog?license=CLC&conference=SEC' },
-          { label: 'University of Oklahoma', href: '#catalog?license=CLC&conference=SEC' },
-          { label: 'University of South Carolina', href: '#catalog?license=CLC&conference=SEC' },
-        ],
-      },
-      {
-        label: 'Big Ten',
-        teams: [
-          { label: 'Michigan State University', href: '#catalog?license=CLC&conference=BigTen' },
-          { label: 'Pennsylvania State University', href: '#catalog?license=CLC&conference=BigTen' },
-          { label: 'University of Maryland', href: '#catalog?license=CLC&conference=BigTen' },
-        ],
-      },
-      {
-        label: 'ACC',
-        teams: [
-          { label: 'Clemson University', href: '#catalog?license=CLC&conference=ACC' },
-          { label: 'Florida State University', href: '#catalog?license=CLC&conference=ACC' },
-          { label: 'University of Louisville', href: '#catalog?license=CLC&conference=ACC' },
-        ],
-      },
-      {
-        label: 'Big 12',
-        teams: [
-          { label: 'Arizona State University', href: '#catalog?license=CLC&conference=Big12' },
-        ],
-      },
-      {
-        label: 'SWAC',
-        teams: [
-          { label: 'Jackson State University', href: '#catalog?license=CLC&conference=SWAC' },
-          { label: 'Southern University', href: '#catalog?license=CLC&conference=SWAC' },
-        ],
-      },
-      {
-        label: 'MEAC',
-        teams: [
-          { label: 'Coppin State', href: '#catalog?license=CLC&conference=MEAC' },
-          { label: 'Howard University', href: '#catalog?license=CLC&conference=MEAC' },
-          { label: 'North Carolina A&T State University', href: '#catalog?license=CLC&conference=MEAC' },
-        ],
-      },
-      {
-        label: 'Independent / Other',
-        teams: [
-          { label: 'Eastern Michigan University', href: '#catalog?license=CLC' },
-          { label: 'Tennessee State University', href: '#catalog?license=CLC' },
-          { label: 'Texas A&M', href: '#catalog?license=CLC' },
-          { label: 'United States Naval Academy', href: '#catalog?license=CLC' },
-          { label: 'University of Mississippi', href: '#catalog?license=CLC' },
-        ],
-      },
-    ],
+    conferences: NCAA_CONFERENCE_GROUPS.map((group) => ({
+      label: group.label,
+      teams: group.teams.map((team) => ({
+        label: team.label,
+        href: buildShopHref({ license: 'CLC', sport: 'BASKETBALL', conference: group.label, school: team.label }),
+      })),
+    })),
     popularPicks: [
-      { label: 'Top NCAA Programs', href: '#catalog?license=CLC' },
-      { label: 'Browse by Conference', href: '#catalog?license=CLC&view=conference' },
-      { label: 'Game Day Legends', href: '#catalog?license=CLC' },
-      { label: 'College Traditions', href: '#catalog?license=CLC' },
+      { label: 'Top NCAA Basketball Programs', href: buildShopHref({ license: 'CLC', sport: 'BASKETBALL' }) },
+      { label: 'Browse by Conference', href: buildShopHref({ license: 'CLC', sport: 'BASKETBALL', conference: 'SEC' }) },
+      { label: 'Courtside Gift Picks', href: buildShopHref({ license: 'CLC', sport: 'BASKETBALL' }) },
+      { label: 'College Traditions', href: buildShopHref({ license: 'CLC', sport: 'BASKETBALL' }) },
     ],
     giftTypes: [
-      { label: 'Football Gift Sets', href: '#catalog?license=CLC' },
-      { label: 'Campus Collectibles', href: '#catalog?license=CLC' },
-      { label: 'Alumni Gifts', href: '#catalog?license=CLC' },
+      { label: 'Basketball Vase Gifts', href: buildShopHref({ license: 'CLC', sport: 'BASKETBALL' }) },
+      { label: 'Campus Collectibles', href: buildShopHref({ license: 'CLC', sport: 'BASKETBALL' }) },
+      { label: 'Alumni Gifts', href: buildShopHref({ license: 'CLC', sport: 'BASKETBALL' }) },
     ],
     seasonal: {
-      title: 'NCAA Spotlight',
-      subtitle: 'Official licensed college team gifts',
-      href: '#catalog?license=CLC',
+      title: 'NCAA Basketball Spotlight',
+      subtitle: 'Official licensed basketball vase gifts by school',
+      href: buildShopHref({ license: 'CLC', sport: 'BASKETBALL' }),
     },
   },
   {
