@@ -75,7 +75,7 @@ const GIFTING_PROMISES = [
 const CONFERENCE_TABS = NCAA_CONFERENCE_GROUPS.map((group) => ({
   value: group.label,
   label: group.label,
-})) as const
+}))
 
 // ── Helpers ───────────────────────────────────────────────────
 

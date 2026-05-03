@@ -48,14 +48,14 @@ describe('MegaNav UI smoke', () => {
     expect(screen.queryByRole('region')).toBeNull()
   })
 
-  it('supports arrow-key tab navigation and updates filter callback', () => {
+  it('supports arrow-key tab navigation without activating the filter callback', () => {
     const onFilterSelect = vi.fn()
     render(<MegaNav onFilterSelect={onFilterSelect} />)
 
     const featuredTab = screen.getByRole('tab', { name: /Featured/i })
     fireEvent.keyDown(featuredTab, { key: 'ArrowRight' })
 
-    expect(onFilterSelect).toHaveBeenCalledWith('NONE')
+    expect(onFilterSelect).not.toHaveBeenCalled()
     expect(screen.getByText(/Popular in NFL/i)).toBeTruthy()
   })
 
