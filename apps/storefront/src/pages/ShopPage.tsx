@@ -239,7 +239,6 @@ export function ShopPage() {
     .filter((product) => matchesConference(product, conferenceFilter))
 
   const usingBasketballCatalogFallback =
-    licenseFilter === 'CLC' &&
     sportFilter === 'BASKETBALL' &&
     filteredProducts.length === 0 &&
     sportAgnosticFilteredProducts.length > 0
@@ -490,7 +489,7 @@ export function ShopPage() {
 
             {usingBasketballCatalogFallback ? (
               <div className="shop-filter-bar__active" aria-live="polite">
-                <span className="shop-filter-pill">Showing NCAA catalog while basketball products are being added</span>
+                <span className="shop-filter-pill">Showing matching catalog while basketball products are being added</span>
               </div>
             ) : null}
           </div>
@@ -512,7 +511,7 @@ export function ShopPage() {
               </div>
               <p className="shop-grid-head__body">
                 {usingBasketballCatalogFallback
-                  ? 'The basketball browse path is live. Until the new BB products are loaded, this view is showing the matching NCAA catalog for the selected school and conference filters.'
+                  ? 'The basketball browse path is live. Until the new BB products are loaded, this view is showing the matching catalog for the selected school, conference, and collection filters.'
                   : 'Compare the available pieces, review the presentation, and choose the school and sport mix that fits the moment best.'}
               </p>
             </div>
