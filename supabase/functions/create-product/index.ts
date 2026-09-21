@@ -42,6 +42,19 @@
  *
  * ADMIN_ROLES only: super_admin, admin.
  *
+ * ─── Apparel (category, size, color, style_key) ───────────────────────────────
+ *
+ * category defaults to 'COLLECTIBLE' when omitted. When category = 'APPAREL':
+ *   - size (S/M/L/XL/XXL) and garment_type (HOODIE/TEE/LS_TEE/CREWNECK) are
+ *     required; color is optional.
+ *   - school must be a licensed school (see _shared/licensed-schools.ts) —
+ *     style_key is generated from it.
+ *   - style_key is NEVER accepted from the request. It is computed
+ *     server-side from school + garment_type and is immutable once set
+ *     (enforced by a DB trigger). See docs/adr/0001-style-key-immutability.md.
+ * When category = 'COLLECTIBLE' (or omitted), size/color/garment_type must
+ * not be provided.
+ *
  * ─── Request ──────────────────────────────────────────────────────────────────
  *
  *   POST /functions/v1/create-product
@@ -53,6 +66,10 @@
  *     "description":        "Official licensed Nike jersey, medium fit.",  // optional
  *     "school":             "University of Florida",                        // optional
  *     "license_body":       "CLC",
+ *     "category":           "APPAREL",                                     // optional, defaults to COLLECTIBLE
+ *     "size":               "M",                                           // required if category=APPAREL
+ *     "color":              "Navy",                                        // optional
+ *     "garment_type":       "HOODIE",                                      // required if category=APPAREL
  *     "royalty_rate":       0.145,                                         // optional
  *     "cost_cents":         2499,
  *     "retail_price_cents": 4999
@@ -92,6 +109,8 @@ import { handleCors } from '../_shared/cors.ts'
 import { createLogger } from '../_shared/logger.ts'
 import { jsonError, jsonResponse, unauthorized } from '../_shared/response.ts'
 import { createAdminClient, createUserClient } from '../_shared/supabase.ts'
+import { isLicensedSchool } from '../_shared/licensed-schools.ts'
+import { VALID_PRODUCT_CATEGORIES, generateStyleKey, validateApparelFields } from '../_shared/apparel.ts'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -112,6 +131,10 @@ interface RequestBody {
   description?:       string
   school?:            string
   license_body:       string
+  category?:          string
+  size?:              string
+  color?:             string
+  garment_type?:      string
   royalty_rate?:      number
   cost_cents:         number
   retail_price_cents: number
@@ -124,6 +147,11 @@ interface Product {
   description:        string | null
   school:             string | null
   license_body:       string
+  category:           string
+  lifecycle_status:   string
+  size:               string | null
+  color:              string | null
+  style_key:          string | null
   royalty_rate:       number | null
   cost_cents:         number
   retail_price_cents: number
@@ -161,11 +189,42 @@ function validate(body: RequestBody): string | null {
     if (typeof body.school !== 'string' || body.school.trim().length === 0) {
       return 'school must be a non-empty string when provided.'
     }
+    if (body.license_body === 'CLC' && !isLicensedSchool(body.school)) {
+      return (
+        `school '${body.school}' is not on the licensed-schools allowlist for CLC products. ` +
+        'Add the license before creating a product for this school.'
+      )
+    }
   }
 
   // license_body
   if (!body.license_body || !VALID_LICENSE_BODIES.has(body.license_body)) {
     return "license_body must be one of: 'CLC', 'ARMY', 'NONE'."
+  }
+
+  // style_key is never client-supplied — computed server-side from school +
+  // garment_type (ADR-0001). Reject it explicitly rather than silently
+  // ignoring it, so a caller who tries this gets a clear error.
+  if ('style_key' in body) {
+    return (
+      'style_key is computed by the server from school + garment_type and cannot be ' +
+      'submitted directly. See docs/adr/0001-style-key-immutability.md.'
+    )
+  }
+
+  // category
+  const category = body.category ?? 'COLLECTIBLE'
+  if (!VALID_PRODUCT_CATEGORIES.has(category)) {
+    return `category must be one of: ${[...VALID_PRODUCT_CATEGORIES].join(', ')}.`
+  }
+
+  const apparelFieldsError = validateApparelFields(category, body.size, body.color, body.garment_type)
+  if (apparelFieldsError !== null) {
+    return apparelFieldsError
+  }
+
+  if (category === 'APPAREL' && (body.school === undefined || !isLicensedSchool(body.school))) {
+    return 'school must be a licensed school when category is APPAREL (style_key is generated from it).'
   }
 
   // royalty_rate
@@ -262,9 +321,26 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     const admin = createAdminClient()
 
+    const category = body.category ?? 'COLLECTIBLE'
+
+    // style_key is computed server-side, never accepted from the client
+    // (ADR-0001). Validation above already guarantees school/garment_type are
+    // present and school is licensed when category is APPAREL.
+    let styleKey: string | null = null
+    if (category === 'APPAREL') {
+      styleKey = generateStyleKey(body.school as string, body.garment_type as string)
+      if (styleKey === null) {
+        // Should be unreachable given the validate() check above, but guard
+        // against it rather than inserting a broken apparel row.
+        return jsonError(req, 'Unable to generate style_key for the given school.', 400)
+      }
+    }
+
     authedLog.info('Creating product', {
       sku:          body.sku,
       license_body: body.license_body,
+      category,
+      style_key:    styleKey,
       cost_cents:   body.cost_cents,
       retail_price_cents: body.retail_price_cents,
     })
@@ -277,6 +353,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
         description:        body.description?.trim() ?? null,
         school:             body.school?.trim() ?? null,
         license_body:       body.license_body,
+        category,
+        size:               category === 'APPAREL' ? body.size : null,
+        color:              category === 'APPAREL' ? (body.color?.trim() ?? null) : null,
+        style_key:          styleKey,
         royalty_rate:       body.royalty_rate ?? null,
         cost_cents:         body.cost_cents,
         retail_price_cents: body.retail_price_cents,

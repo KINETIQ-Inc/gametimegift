@@ -52,7 +52,7 @@ describe('FeaturedCarousel', () => {
 
     expect(screen.getByRole('heading', { name: 'Clemson Collector Football' })).toBeTruthy()
     expect(document.querySelector('.featured-product-art')?.getAttribute('src')).toContain(
-      'https://gametimegift.com/assets/products/clemson.png',
+      '/assets/products/clemson.png',
     )
 
     fireEvent.click(screen.getByRole('button', { name: /Next featured product/i }))
@@ -89,7 +89,7 @@ describe('FeaturedCarousel', () => {
 
     expect(screen.getByRole('heading', { name: 'Alabama Collector Football' })).toBeTruthy()
     expect(document.querySelector('.featured-product-art')?.getAttribute('src')).toContain(
-      'https://gametimegift.com/assets/products/alabama.png',
+      '/assets/products/alabama.png',
     )
   })
 })

@@ -105,11 +105,14 @@ import { handleCors } from '../_shared/cors.ts'
 import { createLogger } from '../_shared/logger.ts'
 import { jsonError, jsonResponse, unauthorized } from '../_shared/response.ts'
 import { createAdminClient, createUserClient } from '../_shared/supabase.ts'
+import { isLicensedSchool } from '../_shared/licensed-schools.ts'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const UUID_RE           = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const VALID_LICENSE_BODIES = new Set(['CLC', 'ARMY', 'NONE'])
+const VALID_PRODUCT_CATEGORIES = new Set(['COLLECTIBLE', 'APPAREL'])
+const VALID_LIFECYCLE_STATUSES = new Set(['DRAFT', 'READY_FOR_REVIEW', 'ACTIVE', 'DISCONTINUED', 'ARCHIVED'])
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -121,6 +124,9 @@ interface RequestBody {
   description?:        string | null
   school?:             string | null
   license_body?:       string
+  category?:           string
+  color?:              string | null
+  lifecycle_status?:   string
   royalty_rate?:       number | null
   cost_cents?:         number
   retail_price_cents?: number
@@ -144,6 +150,11 @@ interface Product {
   description:        string | null
   school:             string | null
   license_body:       string
+  category:           string
+  lifecycle_status:   string
+  size:               string | null
+  color:              string | null
+  style_key:          string | null
   royalty_rate:       number | null
   cost_cents:         number
   retail_price_cents: number
@@ -156,8 +167,9 @@ interface Product {
 // ─── Editable field keys (used to detect at least one editable field) ─────────
 
 const EDITABLE_FIELDS = new Set([
-  'name', 'description', 'school', 'license_body', 'royalty_rate',
-  'cost_cents', 'retail_price_cents', 'is_active',
+  'name', 'description', 'school', 'license_body', 'category', 'color',
+  'lifecycle_status', 'royalty_rate', 'cost_cents', 'retail_price_cents',
+  'is_active',
 ])
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
@@ -220,13 +232,34 @@ Deno.serve(async (req: Request): Promise<Response> => {
       )
     }
 
+    // style_key is immutable (ADR-0001) — same treatment as sku. size is tied
+    // to the physical units already received against this row and is not
+    // editable either; a size correction means creating a new product.
+    if ('style_key' in body) {
+      return jsonError(
+        req,
+        'style_key is immutable and cannot be changed after creation. ' +
+        'See docs/adr/0001-style-key-immutability.md.',
+        400,
+      )
+    }
+    if ('size' in body) {
+      return jsonError(
+        req,
+        'size cannot be changed after creation. Create a new product for a ' +
+        'different size.',
+        400,
+      )
+    }
+
     // At least one editable field must be present
     const hasEditableField = Object.keys(body).some((k) => EDITABLE_FIELDS.has(k))
     if (!hasEditableField) {
       return jsonError(
         req,
         'At least one editable field must be provided: ' +
-        'name, description, school, license_body, royalty_rate, cost_cents, retail_price_cents, is_active.',
+        'name, description, school, license_body, category, color, lifecycle_status, ' +
+        'royalty_rate, cost_cents, retail_price_cents, is_active.',
         400,
       )
     }
@@ -271,6 +304,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (body.school !== undefined && body.school !== null) {
       if (typeof body.school !== 'string' || body.school.trim().length === 0) {
         return jsonError(req, 'school must be a non-empty string or null.', 400)
+      }
+      if (effectiveLicenseBody === 'CLC' && !isLicensedSchool(body.school)) {
+        return jsonError(
+          req,
+          `school '${body.school}' is not on the licensed-schools allowlist for CLC products. ` +
+          'Add the license before assigning a product to this school.',
+          400,
+        )
       }
     }
 
@@ -335,6 +376,27 @@ Deno.serve(async (req: Request): Promise<Response> => {
       return jsonError(req, 'is_active must be a boolean.', 400)
     }
 
+    // category
+    if (body.category !== undefined && !VALID_PRODUCT_CATEGORIES.has(body.category)) {
+      return jsonError(req, `category must be one of: ${[...VALID_PRODUCT_CATEGORIES].join(', ')}.`, 400)
+    }
+
+    // color
+    if (body.color !== undefined && body.color !== null) {
+      if (typeof body.color !== 'string' || body.color.trim().length === 0) {
+        return jsonError(req, 'color must be a non-empty string or null.', 400)
+      }
+    }
+
+    // lifecycle_status
+    if (body.lifecycle_status !== undefined && !VALID_LIFECYCLE_STATUSES.has(body.lifecycle_status)) {
+      return jsonError(
+        req,
+        `lifecycle_status must be one of: ${[...VALID_LIFECYCLE_STATUSES].join(', ')}.`,
+        400,
+      )
+    }
+
     // ── Step 8: Build update payload ────────────────────────────────────────────
 
     // deno-lint-ignore no-explicit-any
@@ -344,6 +406,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (body.description !== undefined) patch.description = body.description?.trim() ?? null
     if (body.school      !== undefined) patch.school      = body.school?.trim() ?? null
     if (body.license_body !== undefined) patch.license_body = body.license_body
+    if (body.category    !== undefined) patch.category    = body.category
+    if (body.color       !== undefined) patch.color       = body.color?.trim() ?? null
+    if (body.lifecycle_status !== undefined) patch.lifecycle_status = body.lifecycle_status
     if (body.cost_cents  !== undefined) patch.cost_cents  = body.cost_cents
     if (body.retail_price_cents !== undefined) patch.retail_price_cents = body.retail_price_cents
     if (body.is_active   !== undefined) patch.is_active   = body.is_active

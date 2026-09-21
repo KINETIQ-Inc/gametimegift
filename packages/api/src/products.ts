@@ -1,9 +1,19 @@
-import type { LicenseBody } from '@gtg/types'
+import type { LicenseBody, ProductCategory, ApparelSize, ProductLifecycleStatus } from '@gtg/types'
+import { generateStyleKey as domainGenerateStyleKey, type GarmentType } from '@gtg/domain'
 import { ApiRequestError } from './error'
 import { assertUuidV4 } from './_internal'
 import { getTableClient, invokeFunction } from './transport'
 
 const VALID_LICENSE_BODIES: LicenseBody[] = ['CLC', 'ARMY', 'NONE']
+
+// ─── Apparel Style Key Generation ──────────────────────────────────────────────
+// Re-exported from @gtg/domain — see docs/adr/0001-style-key-immutability.md.
+// This is the only sanctioned way to produce a style_key; admins never type
+// one by hand.
+
+export const generateStyleKey = domainGenerateStyleKey
+export type { GarmentType, ProductCategory, ApparelSize, ProductLifecycleStatus }
+export { GARMENT_TYPES, APPAREL_SIZE_ORDER } from '@gtg/domain'
 
 export interface ProductListItem {
   id: string
@@ -12,6 +22,11 @@ export interface ProductListItem {
   description: string | null
   school: string | null
   license_body: LicenseBody
+  category: ProductCategory
+  lifecycle_status: ProductLifecycleStatus
+  size: ApparelSize | null
+  color: string | null
+  style_key: string | null
   retail_price_cents: number
   available_count: number
   in_stock: boolean
@@ -23,6 +38,8 @@ export interface ListProductsInput {
   search?: string
   school?: string
   license_body?: LicenseBody | LicenseBody[]
+  category?: ProductCategory
+  style_key?: string
   limit?: number
   offset?: number
 }
@@ -51,6 +68,18 @@ export interface CreateProductInput {
   description?: string
   school?: string
   license_body: LicenseBody
+  /** Defaults to 'COLLECTIBLE' server-side when omitted. */
+  category?: ProductCategory
+  /** Required when category is 'APPAREL'. Ignored for 'COLLECTIBLE'. */
+  size?: ApparelSize
+  /** Optional even for 'APPAREL'. Ignored for 'COLLECTIBLE'. */
+  color?: string
+  /**
+   * Required when category is 'APPAREL' (combined with `school` to compute
+   * style_key server-side via generateStyleKey — see docs/adr/0001). Never
+   * submit a `style_key` directly; there is no such field on this input.
+   */
+  garment_type?: GarmentType
   royalty_rate?: number
   cost_cents: number
   retail_price_cents: number
@@ -63,6 +92,11 @@ export interface ProductRecord {
   description: string | null
   school: string | null
   license_body: LicenseBody
+  category: ProductCategory
+  lifecycle_status: ProductLifecycleStatus
+  size: ApparelSize | null
+  color: string | null
+  style_key: string | null
   royalty_rate: number | null
   cost_cents: number
   retail_price_cents: number
@@ -78,6 +112,10 @@ export interface UpdateProductInput {
   description?: string | null
   school?: string | null
   license_body?: LicenseBody
+  /** style_key is immutable and cannot be patched — see docs/adr/0001. */
+  category?: ProductCategory
+  color?: string | null
+  lifecycle_status?: ProductLifecycleStatus
   royalty_rate?: number | null
   cost_cents?: number
   retail_price_cents?: number
@@ -143,6 +181,13 @@ async function listProductsDirectly(): Promise<ProductListItem[]> {
     description: product.sport ? `${product.sport} collectible` : null,
     school: product.school,
     license_body: product.license_body,
+    // This direct-query fallback predates apparel support and only ever
+    // returns collectibles — see the schema mismatch note on DirectProductRow.
+    category: 'COLLECTIBLE' as const,
+    lifecycle_status: 'ACTIVE' as const,
+    size: null,
+    color: null,
+    style_key: null,
     retail_price_cents: product.retail_price_cents,
     available_count: 1,
     in_stock: true,
@@ -179,7 +224,7 @@ export async function listProductsWithFallback(
 }
 
 export async function createProduct(input: CreateProductInput): Promise<ProductRecord> {
-  const { sku, name, license_body } = input
+  const { sku, name, license_body, category, size, garment_type } = input
 
   if (!sku || !name) {
     throw new ApiRequestError(
@@ -188,6 +233,19 @@ export async function createProduct(input: CreateProductInput): Promise<ProductR
     )
   }
   assertLicenseBody(license_body, 'createProduct')
+
+  if (category === 'APPAREL' && garment_type === undefined) {
+    throw new ApiRequestError(
+      '[GTG] createProduct(): garment_type is required when category is APPAREL.',
+      'VALIDATION_ERROR',
+    )
+  }
+  if (category === 'COLLECTIBLE' && (size !== undefined || garment_type !== undefined)) {
+    throw new ApiRequestError(
+      '[GTG] createProduct(): size and garment_type must not be set when category is COLLECTIBLE.',
+      'VALIDATION_ERROR',
+    )
+  }
 
   return invokeFunction<ProductRecord>('create-product', input as unknown as Record<string, unknown>, 'createProduct')
 }

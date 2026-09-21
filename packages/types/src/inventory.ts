@@ -23,6 +23,40 @@ export type UnitStatus =
 /** Collegiate Licensing Company or U.S. Army — the royalty-bearing authority. */
 export type LicenseBody = 'CLC' | 'ARMY' | 'NONE'
 
+// ─── Product Category ──────────────────────────────────────────────────────────
+
+/**
+ * Distinguishes the serialized-collectible catalog from the apparel line.
+ * APPAREL rows require size/style_key; COLLECTIBLE rows must not set them.
+ *
+ * SYNC REQUIREMENT: values must match the SQL enum public.product_category
+ * exactly (supabase/migrations/20260921000100_add_apparel_category_to_products.sql).
+ * See docs/adr/0002-apparel-variant-model-and-phasing.md.
+ */
+export type ProductCategory = 'COLLECTIBLE' | 'APPAREL'
+
+/**
+ * Apparel size. Null on the product row for COLLECTIBLE category.
+ *
+ * SYNC REQUIREMENT: values must match the products_size_valid SQL check
+ * constraint exactly.
+ */
+export type ApparelSize = 'S' | 'M' | 'L' | 'XL' | 'XXL'
+
+/**
+ * Product lifecycle stage. Column exists ahead of the transition-enforcement
+ * workflow — `is_active` remains the operative order-eligibility flag today.
+ *
+ * SYNC REQUIREMENT: values must match the SQL enum
+ * public.product_lifecycle_status exactly. See docs/adr/0007-product-lifecycle.md.
+ */
+export type ProductLifecycleStatus =
+  | 'DRAFT'
+  | 'READY_FOR_REVIEW'
+  | 'ACTIVE'
+  | 'DISCONTINUED'
+  | 'ARCHIVED'
+
 // ─── Hologram Record ──────────────────────────────────────────────────────────
 
 /**
