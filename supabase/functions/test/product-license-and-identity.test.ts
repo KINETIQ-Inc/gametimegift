@@ -97,6 +97,32 @@ describe('edit-product: apparel identity (style_key/school/category) is immutabl
   })
 })
 
+describe('database product identity and lifecycle invariants', () => {
+  const integrityMigration = source(
+    'supabase/migrations/20260922000100_enforce_product_identity_and_lifecycle.sql',
+  )
+  const editProductSource = source('supabase/functions/edit-product/index.ts')
+
+  it('rejects changing school or category underneath an existing style_key', () => {
+    expect(integrityMigration).toContain(
+      'old.style_key is not null and old.school is distinct from new.school',
+    )
+    expect(integrityMigration).toContain(
+      'old.style_key is not null and old.category is distinct from new.category',
+    )
+  })
+
+  it('enforces lifecycle_status and is_active agreement in the database', () => {
+    expect(integrityMigration).toContain('products_lifecycle_matches_active')
+    expect(integrityMigration).toContain("check ((lifecycle_status = 'ACTIVE') = is_active)")
+  })
+
+  it('rejects contradictory lifecycle fields at the API boundary', () => {
+    expect(editProductSource).toContain('lifecycle_status and is_active disagree')
+    expect(editProductSource).toContain("patch.lifecycle_status = body.is_active ? 'ACTIVE' : 'DISCONTINUED'")
+  })
+})
+
 describe('duplicate apparel variants (style_key + size + color) are rejected, not silently created', () => {
   const createProductSource = source('supabase/functions/create-product/index.ts')
   const editProductSource = source('supabase/functions/edit-product/index.ts')

@@ -445,6 +445,22 @@ Deno.serve(async (req: Request): Promise<Response> => {
       )
     }
 
+    // lifecycle_status is the descriptive form of the operative is_active
+    // flag. Accept either field on its own by deriving its counterpart, but
+    // reject contradictory pairs rather than allowing impossible states such
+    // as ARCHIVED + is_active=true. The database enforces the same invariant.
+    if (
+      body.lifecycle_status !== undefined &&
+      body.is_active !== undefined &&
+      (body.lifecycle_status === 'ACTIVE') !== body.is_active
+    ) {
+      return jsonError(
+        req,
+        "lifecycle_status and is_active disagree: ACTIVE requires is_active=true; all other lifecycle states require is_active=false.",
+        400,
+      )
+    }
+
     // ── Step 8: Build update payload ────────────────────────────────────────────
 
     // deno-lint-ignore no-explicit-any
@@ -456,10 +472,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (body.license_body !== undefined) patch.license_body = body.license_body
     if (body.category    !== undefined) patch.category    = body.category
     if (body.color       !== undefined) patch.color       = body.color?.trim() ?? null
-    if (body.lifecycle_status !== undefined) patch.lifecycle_status = body.lifecycle_status
+    if (body.lifecycle_status !== undefined) {
+      patch.lifecycle_status = body.lifecycle_status
+      patch.is_active = body.lifecycle_status === 'ACTIVE'
+    }
     if (body.cost_cents  !== undefined) patch.cost_cents  = body.cost_cents
     if (body.retail_price_cents !== undefined) patch.retail_price_cents = body.retail_price_cents
-    if (body.is_active   !== undefined) patch.is_active   = body.is_active
+    if (body.is_active !== undefined) {
+      patch.is_active = body.is_active
+      if (body.lifecycle_status === undefined) {
+        patch.lifecycle_status = body.is_active ? 'ACTIVE' : 'DISCONTINUED'
+      }
+    }
 
     // royalty_rate requires special handling:
     //   a) Explicitly provided (number or null) → use directly

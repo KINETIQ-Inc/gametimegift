@@ -121,7 +121,14 @@ export function EditProductPanel(props: EditProductPanelProps) {
           Lifecycle Status
           <select
             value={form.lifecycleStatus}
-            onChange={(e) => onFormChange({ ...form, lifecycleStatus: e.target.value as ProductLifecycleStatus })}
+            onChange={(e) => {
+              const lifecycleStatus = e.target.value as ProductLifecycleStatus
+              onFormChange({
+                ...form,
+                lifecycleStatus,
+                isActive: lifecycleStatus === 'ACTIVE',
+              })
+            }}
           >
             {PRODUCT_LIFECYCLE_STATUS_OPTIONS.map((option) => (
               <option key={option} value={option}>
@@ -163,7 +170,14 @@ export function EditProductPanel(props: EditProductPanelProps) {
           <input
             type="checkbox"
             checked={form.isActive}
-            onChange={(e) => onFormChange({ ...form, isActive: e.target.checked })}
+            onChange={(e) => {
+              const isActive = e.target.checked
+              onFormChange({
+                ...form,
+                isActive,
+                lifecycleStatus: isActive ? 'ACTIVE' : 'DISCONTINUED',
+              })
+            }}
           />
           Active
         </label>

@@ -1,7 +1,7 @@
 # ADR-0007: Product Lifecycle
 
 ## Status
-Partially implemented — column added in Sprint 2; transition workflow reserved.
+Integrity relationship implemented; ordered transition workflow reserved.
 
 ## Context
 
@@ -21,18 +21,14 @@ Target state machine:
 DRAFT → READY_FOR_REVIEW → ACTIVE → DISCONTINUED → ARCHIVED
 ```
 
-Scope for this task (Sprint 2): add a `lifecycle_status` enum column to
-`products` (default `'ACTIVE'` for existing rows, so nothing has to be
-re-migrated later) purely so the column exists. This does **not** build
-transition-enforcement logic or admin UI for moving a product through the
-states. `is_active` remains the sole operative "can this be ordered" flag until
-that follow-up work happens.
+Sprint 2 added a `lifecycle_status` enum column to `products` with an `ACTIVE`
+default. The follow-up integrity migration makes the relationship between that
+column and the operative publication flag explicit:
 
-Intended relationship once the workflow is built: `lifecycle_status = 'ACTIVE'`
-implies `is_active = true`; every other status implies `is_active = false`.
-This isn't enforced by a constraint yet — it's the design target for whoever
-builds the transition workflow, so they aren't guessing at how the two fields
-should relate.
+`lifecycle_status = 'ACTIVE'` if and only if `is_active = true`; every other
+status requires `is_active = false`. The database constraint is authoritative,
+and `edit-product` keeps the two fields synchronized when a caller supplies
+only one. Ordered transition authorization remains future work.
 
 ## Rationale
 
@@ -45,10 +41,8 @@ logic and admin workflow now would be meaningfully more scope than this task
 
 ## Consequences
 
-- Until the workflow is built, `lifecycle_status` is present but not
-  authoritative — don't build features that branch on it before the
-  enforcement logic exists, or they'll be branching on a value nothing is
-  actually maintaining yet beyond its default.
+- `lifecycle_status` and `is_active` cannot contradict one another. Existing
+  rows are reconciled before the database constraint is installed.
 - The eventual workflow will need to decide who can move a product between
   states (likely admin-only, mirroring every other product mutation) and
   whether any transitions are one-way (e.g. `ARCHIVED` should probably never
