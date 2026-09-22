@@ -165,16 +165,54 @@ export async function listProducts(input: ListProductsInput = {}): Promise<ListP
   return invokeFunction<ListProductsResult>('list-products', input as unknown as Record<string, unknown>, 'listProducts')
 }
 
-async function listProductsDirectly(): Promise<ProductListItem[]> {
+// This fallback reads the `products` table directly with the browser's
+// anon-key client, for when the list-products Edge Function itself is
+// unreachable. It must apply the SAME filters as that function (never
+// broaden what the caller asked for) and must NEVER fabricate stock: the
+// real availability join (get_available_unit_counts) is granted to
+// service_role only — see
+// supabase/migrations/20260305000035_get_available_unit_counts_fn.sql — so
+// this anon-key client cannot legally call it. Reporting unknown
+// availability as available would be actively misleading (a shopper could
+// "buy" something with zero real stock); every row here is honestly
+// unavailable until list-products itself is reachable again.
+async function listProductsDirectly(input: ListProductsInput): Promise<ListProductsResult> {
   const client = getTableClient()
-  const { data, error } = await client
+  const limit = input.limit ?? 50
+  const offset = input.offset ?? 0
+
+  let query = client
     .from('products')
     .select(
       'id, sku, name, description, school, license_body, category, lifecycle_status, ' +
       'size, color, style_key, retail_price_cents, created_at, updated_at',
+      { count: 'exact' },
     )
     .eq('is_active', true)
-    .order('created_at', { ascending: false })
+    .order('name', { ascending: true })
+    .range(offset, offset + limit - 1)
+
+  if (input.license_body !== undefined) {
+    const bodies = Array.isArray(input.license_body) ? input.license_body : [input.license_body]
+    const [firstBody] = bodies
+    query = bodies.length === 1 && firstBody !== undefined
+      ? query.eq('license_body', firstBody)
+      : query.in('license_body', bodies)
+  }
+  if (input.search !== undefined) {
+    query = query.ilike('name', `%${input.search.trim()}%`)
+  }
+  if (input.school !== undefined) {
+    query = query.eq('school', input.school.trim())
+  }
+  if (input.category !== undefined) {
+    query = query.eq('category', input.category)
+  }
+  if (input.style_key !== undefined) {
+    query = query.eq('style_key', input.style_key.trim())
+  }
+
+  const { data, error, count } = await query
 
   if (error) {
     throw new ApiRequestError(
@@ -183,11 +221,7 @@ async function listProductsDirectly(): Promise<ProductListItem[]> {
     )
   }
 
-  // This fallback reads the table directly (bypassing list-products' unit
-  // availability join), so available_count/in_stock can't be computed here —
-  // approximated as "available" since this path only runs when the edge
-  // function itself is unreachable, not for routine browsing.
-  return ((data ?? []) as DirectProductRow[]).map((product) => ({
+  const products: ProductListItem[] = ((data ?? []) as DirectProductRow[]).map((product) => ({
     id: product.id,
     sku: product.sku,
     name: product.name,
@@ -200,37 +234,35 @@ async function listProductsDirectly(): Promise<ProductListItem[]> {
     color: product.color,
     style_key: product.style_key,
     retail_price_cents: product.retail_price_cents,
-    available_count: 1,
-    in_stock: true,
+    // Never fabricated — see the function comment. Real availability is
+    // unknown from this path, and unknown must never be presented as "in
+    // stock" or "1 available."
+    available_count: 0,
+    in_stock: false,
     created_at: product.created_at,
     updated_at: product.updated_at,
   }))
+
+  return {
+    products,
+    total: count ?? products.length,
+    limit,
+    offset,
+  }
 }
 
 export async function listProductsWithFallback(
   input: ListProductsInput = {},
 ): Promise<ListProductsResult> {
+  // A successful, filtered, genuinely empty result ("no products match
+  // school=X") is a valid answer, not a failure — falling back to an
+  // unfiltered direct query in that case would broaden the result set behind
+  // the caller's back. The fallback only exists for when list-products
+  // itself could not be reached at all.
   try {
-    const result = await listProducts(input)
-    if (result.products.length > 0) {
-      return result
-    }
-
-    const products = await listProductsDirectly()
-    return {
-      products,
-      total: products.length,
-      limit: input.limit ?? products.length,
-      offset: input.offset ?? 0,
-    }
+    return await listProducts(input)
   } catch {
-    const products = await listProductsDirectly()
-    return {
-      products,
-      total: products.length,
-      limit: input.limit ?? products.length,
-      offset: input.offset ?? 0,
-    }
+    return listProductsDirectly(input)
   }
 }
 

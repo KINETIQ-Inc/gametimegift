@@ -1,11 +1,47 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
-import { execSync } from 'node:child_process'
+import { readFileSync, readdirSync } from 'node:fs'
+import { resolve, join } from 'node:path'
 
 const repoRoot = process.cwd()
 
 function read(filePath) {
   return readFileSync(resolve(repoRoot, filePath), 'utf8')
+}
+
+// Pure Node directory walk in place of shelling out to `rg` — GitHub-hosted
+// runners don't consistently have ripgrep available, and this validator
+// needs to behave identically in local development and CI without depending
+// on any external binary. Skips the same kinds of directories `rg --files`
+// would have excluded via .gitignore (node_modules, build output, VCS/tool
+// dirs) rather than trying to parse .gitignore itself.
+const SKIP_DIRS = new Set([
+  'node_modules', '.git', 'dist', 'build', 'coverage', '.turbo', '.next', '.vercel',
+])
+
+function findSourceFiles(root) {
+  const results = []
+
+  function walk(dir) {
+    let entries
+    try {
+      entries = readdirSync(dir, { withFileTypes: true })
+    } catch {
+      return // root doesn't exist (e.g. apps/mobile is still a placeholder) — skip silently
+    }
+
+    for (const entry of entries) {
+      const fullPath = join(dir, entry.name)
+
+      if (entry.isDirectory()) {
+        if (SKIP_DIRS.has(entry.name) || entry.name.startsWith('.')) continue
+        walk(fullPath)
+      } else if (entry.isFile() && (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx'))) {
+        results.push(fullPath)
+      }
+    }
+  }
+
+  walk(resolve(repoRoot, root))
+  return results
 }
 
 function parseEnvExampleKeys(content) {
@@ -37,16 +73,11 @@ function union(...sets) {
 }
 
 const envExample = parseEnvExampleKeys(read('.env.example'))
-const allTs = execSync("rg --files supabase/functions packages apps -g '*.ts' -g '*.tsx'", {
-  encoding: 'utf8',
-})
-  .split('\n')
-  .map((line) => line.trim())
-  .filter(Boolean)
+const allTs = ['supabase/functions', 'packages', 'apps'].flatMap((root) => findSourceFiles(root))
 
 let tsSource = ''
 for (const file of allTs) {
-  tsSource += `\n${read(file)}`
+  tsSource += `\n${readFileSync(file, 'utf8')}`
 }
 
 const denoVars = collectVarsFromPattern(/Deno\.env\.get\('([A-Z0-9_]+)'\)/g, tsSource)
