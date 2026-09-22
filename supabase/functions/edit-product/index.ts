@@ -136,7 +136,10 @@ interface RequestBody {
 interface ExistingProduct {
   id:                 string
   sku:                string
+  school:             string | null
   license_body:       string
+  category:           string
+  style_key:          string | null
   royalty_rate:       number | null
   cost_cents:         number
   retail_price_cents: number
@@ -270,7 +273,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     const { data: existing, error: fetchError } = await admin
       .from('products')
-      .select('id, sku, license_body, royalty_rate, cost_cents, retail_price_cents, is_active')
+      .select('id, sku, school, license_body, category, style_key, royalty_rate, cost_cents, retail_price_cents, is_active')
       .eq('id', body.product_id)
       .single()
 
@@ -286,6 +289,44 @@ Deno.serve(async (req: Request): Promise<Response> => {
     // Resolve effective values (incoming if provided, existing otherwise)
     const effectiveLicenseBody = body.license_body ?? current.license_body
     const effectiveCostCents   = body.cost_cents   ?? current.cost_cents
+
+    // style_key encodes school + garment type at creation time (ADR-0001) and
+    // is itself immutable (rejected above). Changing `school` out from under
+    // an existing style_key — or flipping `category` in or out of APPAREL
+    // after the fact — would silently desync the two without ever touching
+    // the immutable field itself, so both are rejected explicitly here.
+    if (current.style_key !== null) {
+      if (
+        body.school !== undefined &&
+        body.school !== null &&
+        body.school.trim() !== current.school
+      ) {
+        return jsonError(
+          req,
+          `school cannot be changed for an apparel product once its style_key ` +
+          `('${current.style_key}') has been generated. style_key is derived from ` +
+          'school + garment type and is permanent — see docs/adr/0001-style-key-immutability.md. ' +
+          'Create a new product for the new school instead.',
+          400,
+        )
+      }
+      if (body.category !== undefined && body.category !== current.category) {
+        return jsonError(
+          req,
+          `category cannot be changed once a style_key ('${current.style_key}') has been ` +
+          'generated — apparel identity is permanent. See docs/adr/0001-style-key-immutability.md.',
+          400,
+        )
+      }
+    } else if (body.category === 'APPAREL' && current.category !== 'APPAREL') {
+      return jsonError(
+        req,
+        'category cannot be changed to APPAREL after creation — style_key can only be ' +
+        'generated at creation time from school + garment type. Create a new apparel ' +
+        'product instead. See docs/adr/0001-style-key-immutability.md.',
+        400,
+      )
+    }
 
     // name
     if (body.name !== undefined) {
@@ -305,14 +346,27 @@ Deno.serve(async (req: Request): Promise<Response> => {
       if (typeof body.school !== 'string' || body.school.trim().length === 0) {
         return jsonError(req, 'school must be a non-empty string or null.', 400)
       }
-      if (effectiveLicenseBody === 'CLC' && !isLicensedSchool(body.school)) {
-        return jsonError(
-          req,
-          `school '${body.school}' is not on the licensed-schools allowlist for CLC products. ` +
-          'Add the license before assigning a product to this school.',
-          400,
-        )
-      }
+    }
+
+    // A CLC product's royalty obligation and storefront/nav visibility are
+    // both keyed off `school`. Checking only the incoming `body.school` (when
+    // present) missed two bypasses: switching license_body to 'CLC' without
+    // touching school, and school already being null/unlicensed before this
+    // edit. Resolve the effective post-update school and validate it
+    // whenever the effective license_body is CLC, matching create-product.
+    const effectiveSchool = body.school !== undefined ? body.school : current.school
+    if (
+      effectiveLicenseBody === 'CLC' &&
+      (effectiveSchool === null || !isLicensedSchool(effectiveSchool))
+    ) {
+      return jsonError(
+        req,
+        effectiveSchool === null
+          ? "school is required when license_body is 'CLC'."
+          : `school '${effectiveSchool}' is not on the licensed-schools allowlist for CLC products. ` +
+            'Add the license before assigning a product to this school.',
+        400,
+      )
     }
 
     // license_body

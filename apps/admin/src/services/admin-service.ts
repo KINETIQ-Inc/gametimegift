@@ -34,6 +34,7 @@ import type {
   FraudReportFormState,
   LicenseAssignFormState,
   LicenseBody,
+  ProductCategory,
   LockUnitFormState,
   RoyaltySummaryFormState,
   UnlockUnitFormState,
@@ -45,22 +46,32 @@ export type { FraudEventListItem, LockUnitResult, UnlockUnitResult, ViewFraudEve
 export async function fetchProducts(input: {
   search?: string
   licenseBody?: 'ALL' | LicenseBody
+  category?: 'ALL' | ProductCategory
 }): Promise<ListProductsResult> {
   return listProducts({
     search: input.search || undefined,
     license_body: input.licenseBody && input.licenseBody !== 'ALL' ? input.licenseBody : undefined,
+    category: input.category && input.category !== 'ALL' ? input.category : undefined,
     limit: 200,
     offset: 0,
   })
 }
 
 export async function createProductFromForm(form: CreateFormState): Promise<void> {
+  const isApparel = form.category === 'APPAREL'
+
   await createProduct({
     sku: form.sku.trim(),
     name: form.name.trim(),
     description: form.description.trim() || undefined,
     school: form.school.trim() || undefined,
     license_body: form.licenseBody,
+    category: form.category,
+    // size/color/garment_type only apply to APPAREL — omitted entirely for
+    // COLLECTIBLE so the request matches what create-product validates.
+    size: isApparel && form.size ? form.size : undefined,
+    color: isApparel && form.color.trim() ? form.color.trim() : undefined,
+    garment_type: isApparel && form.garmentType ? form.garmentType : undefined,
     royalty_rate: form.royaltyRate.trim() ? Number(form.royaltyRate.trim()) : undefined,
     cost_cents: Number(form.costCents),
     retail_price_cents: Number(form.retailPriceCents),
@@ -74,10 +85,13 @@ export async function updateProductFromForm(form: EditFormState): Promise<void> 
     description: form.description.trim() || null,
     school: form.school.trim() || null,
     license_body: form.licenseBody,
+    category: form.category,
+    color: form.color.trim() || null,
+    lifecycle_status: form.lifecycleStatus,
     royalty_rate: form.royaltyRate.trim() ? Number(form.royaltyRate.trim()) : null,
     cost_cents: form.costCents.trim() ? Number(form.costCents) : undefined,
     retail_price_cents: form.retailPriceCents.trim() ? Number(form.retailPriceCents) : undefined,
-    active: form.isActive,
+    is_active: form.isActive,
   })
 }
 

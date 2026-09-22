@@ -189,17 +189,23 @@ function validate(body: RequestBody): string | null {
     if (typeof body.school !== 'string' || body.school.trim().length === 0) {
       return 'school must be a non-empty string when provided.'
     }
-    if (body.license_body === 'CLC' && !isLicensedSchool(body.school)) {
-      return (
-        `school '${body.school}' is not on the licensed-schools allowlist for CLC products. ` +
-        'Add the license before creating a product for this school.'
-      )
-    }
   }
 
   // license_body
   if (!body.license_body || !VALID_LICENSE_BODIES.has(body.license_body)) {
     return "license_body must be one of: 'CLC', 'ARMY', 'NONE'."
+  }
+
+  // A CLC product's royalty obligation and storefront/nav visibility are both
+  // keyed off `school`. Validating school only "when provided" left `school`
+  // entirely omittable, so a CLC product could be created with no school at
+  // all and no allowlist check ever ran. school is required for every CLC
+  // product, not just apparel ones.
+  if (body.license_body === 'CLC' && (body.school === undefined || !isLicensedSchool(body.school))) {
+    return body.school === undefined
+      ? "school is required when license_body is 'CLC'."
+      : `school '${body.school}' is not on the licensed-schools allowlist for CLC products. ` +
+        'Add the license before creating a product for this school.'
   }
 
   // style_key is never client-supplied — computed server-side from school +

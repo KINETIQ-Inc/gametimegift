@@ -298,11 +298,11 @@ export const MEGA_NAV_TABS: readonly MegaNavTab[] = [
     status: 'live',
     audience: 'military',
     productFilters: { license_body: 'ARMY' },
+    // Only the two licensed service academies — Air Force and Marines have no
+    // license and must not be advertised alongside licensed branches.
     teams: [
       { label: 'Army (West Point)', href: '#catalog?license=ARMY' },
-      { label: 'Air Force', href: '#catalog?license=ARMY' },
       { label: 'Navy', href: '#catalog?license=ARMY' },
-      { label: 'Marines', href: '#catalog?license=ARMY' },
     ],
     popularPicks: [
       { label: 'Patriot Collection', href: '#catalog?license=ARMY' },

@@ -55,11 +55,17 @@ type DirectProductRow = {
   id: string
   sku: string
   name: string
+  description: string | null
   school: string | null
-  sport: string | null
   license_body: LicenseBody
+  category: ProductCategory
+  lifecycle_status: ProductLifecycleStatus
+  size: ApparelSize | null
+  color: string | null
+  style_key: string | null
   retail_price_cents: number
   created_at: string
+  updated_at: string
 }
 
 export interface CreateProductInput {
@@ -100,7 +106,7 @@ export interface ProductRecord {
   royalty_rate: number | null
   cost_cents: number
   retail_price_cents: number
-  active: boolean
+  is_active: boolean
   created_at: string
   updated_at: string
   created_by: string
@@ -119,7 +125,7 @@ export interface UpdateProductInput {
   royalty_rate?: number | null
   cost_cents?: number
   retail_price_cents?: number
-  active?: boolean
+  is_active?: boolean
 }
 
 export interface AssignProductLicenseInput {
@@ -163,8 +169,11 @@ async function listProductsDirectly(): Promise<ProductListItem[]> {
   const client = getTableClient()
   const { data, error } = await client
     .from('products')
-    .select('id, sku, name, school, sport, license_body:license_type, retail_price_cents:price, created_at')
-    .eq('active', true)
+    .select(
+      'id, sku, name, description, school, license_body, category, lifecycle_status, ' +
+      'size, color, style_key, retail_price_cents, created_at, updated_at',
+    )
+    .eq('is_active', true)
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -174,25 +183,27 @@ async function listProductsDirectly(): Promise<ProductListItem[]> {
     )
   }
 
+  // This fallback reads the table directly (bypassing list-products' unit
+  // availability join), so available_count/in_stock can't be computed here —
+  // approximated as "available" since this path only runs when the edge
+  // function itself is unreachable, not for routine browsing.
   return ((data ?? []) as DirectProductRow[]).map((product) => ({
     id: product.id,
     sku: product.sku,
     name: product.name,
-    description: product.sport ? `${product.sport} collectible` : null,
+    description: product.description,
     school: product.school,
     license_body: product.license_body,
-    // This direct-query fallback predates apparel support and only ever
-    // returns collectibles — see the schema mismatch note on DirectProductRow.
-    category: 'COLLECTIBLE' as const,
-    lifecycle_status: 'ACTIVE' as const,
-    size: null,
-    color: null,
-    style_key: null,
+    category: product.category,
+    lifecycle_status: product.lifecycle_status,
+    size: product.size,
+    color: product.color,
+    style_key: product.style_key,
     retail_price_cents: product.retail_price_cents,
     available_count: 1,
     in_stock: true,
     created_at: product.created_at,
-    updated_at: product.created_at,
+    updated_at: product.updated_at,
   }))
 }
 
@@ -269,7 +280,7 @@ export async function updateProduct(input: UpdateProductInput): Promise<ProductR
 }
 
 export async function deactivateProduct(productId: string): Promise<ProductRecord> {
-  return updateProduct({ product_id: productId, active: false })
+  return updateProduct({ product_id: productId, is_active: false })
 }
 
 export async function assignProductLicense(

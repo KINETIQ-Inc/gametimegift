@@ -28,7 +28,7 @@ import { lazy, Suspense, useState, useEffect } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { AlertBanner, Button, Heading } from '@gtg/ui'
 import { formatUsdCents } from '@gtg/utils'
-import { type ProductListItem } from '@gtg/api'
+import { APPAREL_SIZE_ORDER, type ProductListItem } from '@gtg/api'
 import { trackStorefrontEvent } from '../analytics'
 import { useStorefront } from '../contexts/useStorefront'
 import { SiteNav } from '../components/nav/SiteNav'
@@ -59,7 +59,9 @@ type PurchaseBundle = 'vase' | 'flowers' | 'humidor'
 type FlowerOption = 'roses' | 'roses-carnations'
 
 interface CheckoutOptions {
-  bundle: PurchaseBundle
+  // Optional — apparel has no vase/flower bundle, so its "Buy Now" checks out
+  // directly with no bundle at all.
+  bundle?: PurchaseBundle
   flowerOption?: FlowerOption
 }
 
@@ -275,6 +277,8 @@ function InlineGiftForm({
 
 function ProductDetail({
   product,
+  variants,
+  onSelectVariant,
   onCheckout,
   onAddToCart,
   onViewCart,
@@ -285,6 +289,10 @@ function ProductDetail({
   productInCart,
 }: {
   product: ProductListItem
+  /** Sibling apparel rows sharing this product's style_key (size/color
+   * variants). Empty for collectibles or apparel with no siblings loaded. */
+  variants: ProductListItem[]
+  onSelectVariant: (variant: ProductListItem) => void
   onCheckout: (options: CheckoutOptions) => void
   onAddToCart: (quantity: number) => void
   onViewCart: () => void
@@ -301,6 +309,25 @@ function ProductDetail({
   const [bundlePanelOpen, setBundlePanelOpen] = useState(false)
   const [bundle, setBundle] = useState<PurchaseBundle>('vase')
   const [flowerOption, setFlowerOption] = useState<FlowerOption>('roses')
+
+  // ── Apparel size/color picker ──
+  // Each size/color combination is its own product row sharing a style_key
+  // (docs/adr/0002-apparel-variant-model-and-phasing.md) — picking a variant
+  // navigates to that sibling product rather than mutating this one.
+  const isApparel = product.category === 'APPAREL'
+  const availableSizes = isApparel
+    ? APPAREL_SIZE_ORDER.filter((size) => variants.some((v) => v.size === size))
+    : []
+  const availableColors = isApparel
+    ? Array.from(new Set(variants.map((v) => v.color).filter((c): c is string => Boolean(c))))
+    : []
+
+  function selectVariant(nextSize: string, nextColor: string | null): void {
+    const exactMatch = variants.find((v) => v.size === nextSize && v.color === nextColor)
+    const sizeMatch = variants.find((v) => v.size === nextSize)
+    const match = exactMatch ?? sizeMatch
+    if (match) onSelectVariant(match)
+  }
   const bundleOptions: Array<{
     id: PurchaseBundle
     title: string
@@ -328,6 +355,12 @@ function ProductDetail({
   ]
 
   const handleBuyNow = () => {
+    // Apparel has no vase/flower bundle to choose — check out directly.
+    if (isApparel) {
+      onCheckout({})
+      return
+    }
+
     if (!bundlePanelOpen) {
       setBundlePanelOpen(true)
       requestAnimationFrame(() => scrollToId('purchase-options'))
@@ -386,9 +419,52 @@ function ProductDetail({
                 <div>
                   <span className="meta-label">Price</span>
                   <strong>{formatUsdCents(product.retail_price_cents)}</strong>
-                  <span className="product-detail-meta-note">Per collectible</span>
+                  <span className="product-detail-meta-note">
+                    {isApparel ? 'Per item' : 'Per collectible'}
+                  </span>
                 </div>
               </div>
+
+              {isApparel && (availableSizes.length > 1 || availableColors.length > 1) ? (
+                <div className="product-detail-variant-picker" aria-label="Choose size and color">
+                  {availableSizes.length > 1 ? (
+                    <div className="variant-picker-group">
+                      <span className="variant-picker-label">Size</span>
+                      <div className="variant-picker-options" role="group" aria-label="Select size">
+                        {availableSizes.map((size) => (
+                          <button
+                            key={size}
+                            type="button"
+                            className={`variant-picker-option ${product.size === size ? 'variant-picker-option--active' : ''}`}
+                            aria-pressed={product.size === size}
+                            onClick={() => selectVariant(size, product.color)}
+                          >
+                            {size}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                  {availableColors.length > 1 ? (
+                    <div className="variant-picker-group">
+                      <span className="variant-picker-label">Color</span>
+                      <div className="variant-picker-options" role="group" aria-label="Select color">
+                        {availableColors.map((color) => (
+                          <button
+                            key={color}
+                            type="button"
+                            className={`variant-picker-option ${product.color === color ? 'variant-picker-option--active' : ''}`}
+                            aria-pressed={product.color === color}
+                            onClick={() => selectVariant(product.size ?? availableSizes[0] ?? '', color)}
+                          >
+                            {color}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
 
               <div className="product-detail-cta-card">
                 <div className="product-detail-cta-copy">
@@ -407,6 +483,7 @@ function ProductDetail({
 
                 {product.in_stock ? (
                   <div className="product-detail-actions">
+                    {isApparel ? null : (
                     <div
                       id="purchase-options"
                       className={`product-detail-bundle ${bundlePanelOpen ? 'product-detail-bundle--open' : ''}`}
@@ -495,10 +572,11 @@ function ProductDetail({
                         </div>
                       ) : null}
                     </div>
+                    )}
 
                     <div className="product-detail-action-grid">
                       <Button variant="gold" size="lg" onClick={handleBuyNow} disabled={!checkoutEnabled}>
-                        {bundlePanelOpen ? 'Continue to Checkout' : 'Buy Now'}
+                        {!isApparel && bundlePanelOpen ? 'Continue to Checkout' : 'Buy Now'}
                       </Button>
                       <Button
                         variant="primary"
@@ -521,7 +599,7 @@ function ProductDetail({
                                 : 'Vase + Cigar Humidor'
                           }.`
                         : productInCart
-                          ? 'This collectible is already in your cart. Review it or keep browsing.'
+                          ? `This ${isApparel ? 'item' : 'collectible'} is already in your cart. Review it or keep browsing.`
                         : cartCount > 0
                           ? `${cartCount} item${cartCount === 1 ? '' : 's'} waiting in your cart`
                           : 'Buy now for immediate checkout, or add to cart and keep browsing.'}
@@ -610,6 +688,12 @@ export function ProductPage() {
   const product = products.find((p) => p.sku === sku) ?? null
   const productInCart = product ? cart.some((entry) => entry.sku === product.sku) : false
 
+  // Sibling apparel rows sharing this product's style_key — the whole
+  // size/color family (docs/adr/0002-apparel-variant-model-and-phasing.md).
+  const variants = product && product.category === 'APPAREL' && product.style_key
+    ? products.filter((p) => p.style_key === product.style_key)
+    : []
+
   // Track page view
   useEffect(() => {
     if (product) {
@@ -650,6 +734,8 @@ export function ProductPage() {
         ) : product ? (
           <ProductDetail
             product={product}
+            variants={variants}
+            onSelectVariant={(variant) => navigate(getProductPath(variant))}
             cartCount={cartCount}
             cartMessage={cartMessage}
             checkoutEnabled={checkoutEnabled}

@@ -1,6 +1,10 @@
 import type { ProductListItem } from '@gtg/api'
 
 export type LicenseBody = 'CLC' | 'ARMY' | 'NONE'
+export type ProductCategory = 'COLLECTIBLE' | 'APPAREL'
+export type ApparelSize = 'S' | 'M' | 'L' | 'XL' | 'XXL'
+export type GarmentType = 'HOODIE' | 'TEE' | 'LS_TEE' | 'CREWNECK'
+export type ProductLifecycleStatus = 'DRAFT' | 'READY_FOR_REVIEW' | 'ACTIVE' | 'DISCONTINUED' | 'ARCHIVED'
 
 export type CreateFormState = {
   sku: string
@@ -8,6 +12,11 @@ export type CreateFormState = {
   description: string
   school: string
   licenseBody: LicenseBody
+  category: ProductCategory
+  // Apparel-only. Ignored (and cleared) when category is COLLECTIBLE.
+  garmentType: GarmentType | ''
+  size: ApparelSize | ''
+  color: string
   royaltyRate: string
   costCents: string
   retailPriceCents: string
@@ -19,6 +28,13 @@ export type EditFormState = {
   description: string
   school: string
   licenseBody: LicenseBody
+  category: ProductCategory
+  color: string
+  lifecycleStatus: ProductLifecycleStatus
+  // Read-only — size and style_key are immutable after creation
+  // (docs/adr/0001-style-key-immutability.md). Displayed for reference only.
+  size: ApparelSize | null
+  styleKey: string | null
   royaltyRate: string
   costCents: string
   retailPriceCents: string
@@ -60,10 +76,22 @@ export const EMPTY_CREATE_FORM: CreateFormState = {
   description: '',
   school: '',
   licenseBody: 'CLC',
+  category: 'COLLECTIBLE',
+  garmentType: '',
+  size: '',
+  color: '',
   royaltyRate: '',
   costCents: '',
   retailPriceCents: '',
 }
+
+export const PRODUCT_CATEGORY_OPTIONS: ProductCategory[] = ['COLLECTIBLE', 'APPAREL']
+export const GARMENT_TYPE_OPTIONS: GarmentType[] = ['HOODIE', 'TEE', 'LS_TEE', 'CREWNECK']
+// Smallest to largest — matches @gtg/domain's APPAREL_SIZE_ORDER.
+export const APPAREL_SIZE_OPTIONS: ApparelSize[] = ['S', 'M', 'L', 'XL', 'XXL']
+export const PRODUCT_LIFECYCLE_STATUS_OPTIONS: ProductLifecycleStatus[] = [
+  'DRAFT', 'READY_FOR_REVIEW', 'ACTIVE', 'DISCONTINUED', 'ARCHIVED',
+]
 
 export const EMPTY_UPLOAD_FORM: UploadFormState = {
   productId: '',
@@ -146,6 +174,11 @@ export function createEditState(product: ProductListItem): EditFormState {
     description: product.description ?? '',
     school: product.school ?? '',
     licenseBody: product.license_body,
+    category: product.category,
+    color: product.color ?? '',
+    lifecycleStatus: product.lifecycle_status,
+    size: product.size,
+    styleKey: product.style_key,
     royaltyRate: '',
     costCents: '',
     retailPriceCents: String(product.retail_price_cents),
