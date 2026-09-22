@@ -132,6 +132,28 @@ function matchesSearchQuery(product: ProductListItem, query: string): boolean {
   return haystack.includes(normalizedQuery)
 }
 
+// Apparel size/color variants are sibling product rows sharing a style_key
+// (docs/adr/0002-apparel-variant-model-and-phasing.md) — without this, every
+// size/color combination of one design would show as its own catalog card.
+// Collectibles have no style_key (always null) and are left one-per-row,
+// same as before.
+function dedupeByStyleKey(products: ProductListItem[]): ProductListItem[] {
+  const seenStyleKeys = new Set<string>()
+  const result: ProductListItem[] = []
+
+  for (const product of products) {
+    if (product.style_key === null) {
+      result.push(product)
+      continue
+    }
+    if (seenStyleKeys.has(product.style_key)) continue
+    seenStyleKeys.add(product.style_key)
+    result.push(product)
+  }
+
+  return result
+}
+
 function matchesConference(product: ProductListItem, conference: string): boolean {
   if (!conference.trim()) return true
 
@@ -259,9 +281,9 @@ export function ShopPage() {
     filteredProducts.length === 0 &&
     sportAgnosticFilteredProducts.length > 0
 
-  const visibleProducts = usingBasketballCatalogFallback
-    ? sportAgnosticFilteredProducts
-    : filteredProducts
+  const visibleProducts = dedupeByStyleKey(
+    usingBasketballCatalogFallback ? sportAgnosticFilteredProducts : filteredProducts,
+  )
 
   const deferredProducts = useDeferredValue(visibleProducts)
   const activeSportLabel = SPORT_TABS.find((tab) => tab.value === sportFilter)?.label ?? 'All Sports'

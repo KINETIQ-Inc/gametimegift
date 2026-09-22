@@ -49,3 +49,30 @@ export function getLicensedSchoolCode(name: string): string | null {
   const match = LICENSED_SCHOOLS.find((school) => normalize(school) === target)
   return match ? LICENSED_SCHOOL_CODES[match] : null
 }
+
+/**
+ * Single source of truth for the "a CLC product must have a licensed school"
+ * rule. Every code path that can leave a product with license_body = 'CLC'
+ * — create-product, edit-product, and assign-product-license — must call
+ * this with the EFFECTIVE post-write license_body and school (the incoming
+ * value if the request changes it, the existing row's value otherwise), not
+ * just the values present in the current request body. Returns an error
+ * message to surface as a 400, or null when valid.
+ */
+export function validateClcSchool(
+  effectiveLicenseBody: string,
+  effectiveSchool: string | null | undefined,
+): string | null {
+  if (effectiveLicenseBody !== 'CLC') return null
+
+  if (effectiveSchool === null || effectiveSchool === undefined) {
+    return "school is required when license_body is 'CLC'."
+  }
+  if (!isLicensedSchool(effectiveSchool)) {
+    return (
+      `school '${effectiveSchool}' is not on the licensed-schools allowlist for CLC products. ` +
+      'Add the license before assigning a product to this school.'
+    )
+  }
+  return null
+}

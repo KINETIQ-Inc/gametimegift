@@ -41,7 +41,7 @@ export type ProductCategory = 'COLLECTIBLE' | 'APPAREL'
  * SYNC REQUIREMENT: values must match the products_size_valid SQL check
  * constraint exactly.
  */
-export type ApparelSize = 'S' | 'M' | 'L' | 'XL' | 'XXL'
+export type ApparelSize = 'S' | 'M' | 'L' | 'XL' | '2XL' | '3XL'
 
 /**
  * Product lifecycle stage. Column exists ahead of the transition-enforcement

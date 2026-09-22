@@ -58,6 +58,67 @@ const products = [
   },
 ]
 
+// Three rows of one apparel design (style_key APP-CLEMSON-HOODIE): S/Navy and
+// M/Navy exist, but Red only exists in M — S/Red is not a real product. Used
+// to verify the picker disables that exact combination instead of silently
+// substituting a different color when Red is clicked while S is selected.
+const apparelProducts = [
+  {
+    id: 'apparel-s-navy',
+    sku: 'APP-CLEMSON-HOODIE-S',
+    name: 'Clemson University Hoodie',
+    description: 'Cozy fleece hoodie.',
+    school: 'Clemson University',
+    license_body: 'CLC' as const,
+    category: 'APPAREL' as const,
+    lifecycle_status: 'ACTIVE' as const,
+    size: 'S' as const,
+    color: 'Navy',
+    style_key: 'APP-CLEMSON-HOODIE',
+    retail_price_cents: 4500,
+    available_count: 5,
+    in_stock: true,
+    created_at: '2026-03-31T00:00:00.000Z',
+    updated_at: '2026-03-31T00:00:00.000Z',
+  },
+  {
+    id: 'apparel-m-navy',
+    sku: 'APP-CLEMSON-HOODIE-M',
+    name: 'Clemson University Hoodie',
+    description: 'Cozy fleece hoodie.',
+    school: 'Clemson University',
+    license_body: 'CLC' as const,
+    category: 'APPAREL' as const,
+    lifecycle_status: 'ACTIVE' as const,
+    size: 'M' as const,
+    color: 'Navy',
+    style_key: 'APP-CLEMSON-HOODIE',
+    retail_price_cents: 4500,
+    available_count: 5,
+    in_stock: true,
+    created_at: '2026-03-31T00:00:00.000Z',
+    updated_at: '2026-03-31T00:00:00.000Z',
+  },
+  {
+    id: 'apparel-m-red',
+    sku: 'APP-CLEMSON-HOODIE-M-RED',
+    name: 'Clemson University Hoodie',
+    description: 'Cozy fleece hoodie.',
+    school: 'Clemson University',
+    license_body: 'CLC' as const,
+    category: 'APPAREL' as const,
+    lifecycle_status: 'ACTIVE' as const,
+    size: 'M' as const,
+    color: 'Red',
+    style_key: 'APP-CLEMSON-HOODIE',
+    retail_price_cents: 4500,
+    available_count: 3,
+    in_stock: true,
+    created_at: '2026-03-31T00:00:00.000Z',
+    updated_at: '2026-03-31T00:00:00.000Z',
+  },
+]
+
 function installMatchMedia(matches: boolean) {
   const listeners = new Set<(event: MediaQueryListEvent) => void>()
   const mediaQuery = {
@@ -259,4 +320,44 @@ describe('product detail conversion flow', () => {
   // that used to live here now duplicate apps/storefront/__tests__/checkout-page.test.tsx
   // exactly (same CheckoutPage component, same "Pay Securely" flow) — removed
   // here rather than kept as a second, drifting copy of the same coverage.
+
+  it('fetches apparel siblings by style_key and disables a size/color combination that does not exist', async () => {
+    mockListProducts.mockResolvedValue({
+      products: apparelProducts,
+      total: apparelProducts.length,
+      limit: 120,
+      offset: 0,
+    })
+
+    renderAtRoute('/product/APP-CLEMSON-HOODIE-S/clemson-hoodie')
+
+    expect(
+      await screen.findByRole('heading', { name: 'Clemson Hoodie', level: 1 }),
+    ).toBeInTheDocument()
+
+    // The variant picker fetches siblings by style_key directly, not just by
+    // filtering whatever page of products the storefront already had loaded.
+    await waitFor(() => {
+      expect(mockListProducts).toHaveBeenCalledWith(
+        expect.objectContaining({ style_key: 'APP-CLEMSON-HOODIE' }),
+      )
+    })
+
+    // Viewing S/Navy: Red is disabled because S/Red isn't a real product
+    // (only M/Red exists) — no silent substitution to a different size.
+    const redButton = await screen.findByRole('button', { name: 'Red' })
+    expect(redButton).toBeDisabled()
+
+    const sizeMButton = screen.getByRole('button', { name: 'M' })
+    expect(sizeMButton).not.toBeDisabled()
+
+    fireEvent.click(sizeMButton)
+
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/product/APP-CLEMSON-HOODIE-M/clemson-hoodie')
+    })
+
+    // Now on M/Navy, where M/Red does exist — Red becomes selectable.
+    expect(await screen.findByRole('button', { name: 'Red' })).not.toBeDisabled()
+  })
 })

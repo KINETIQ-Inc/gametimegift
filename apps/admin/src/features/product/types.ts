@@ -2,7 +2,7 @@ import type { ProductListItem } from '@gtg/api'
 
 export type LicenseBody = 'CLC' | 'ARMY' | 'NONE'
 export type ProductCategory = 'COLLECTIBLE' | 'APPAREL'
-export type ApparelSize = 'S' | 'M' | 'L' | 'XL' | 'XXL'
+export type ApparelSize = 'S' | 'M' | 'L' | 'XL' | '2XL' | '3XL'
 export type GarmentType = 'HOODIE' | 'TEE' | 'LS_TEE' | 'CREWNECK'
 export type ProductLifecycleStatus = 'DRAFT' | 'READY_FOR_REVIEW' | 'ACTIVE' | 'DISCONTINUED' | 'ARCHIVED'
 
@@ -88,7 +88,7 @@ export const EMPTY_CREATE_FORM: CreateFormState = {
 export const PRODUCT_CATEGORY_OPTIONS: ProductCategory[] = ['COLLECTIBLE', 'APPAREL']
 export const GARMENT_TYPE_OPTIONS: GarmentType[] = ['HOODIE', 'TEE', 'LS_TEE', 'CREWNECK']
 // Smallest to largest — matches @gtg/domain's APPAREL_SIZE_ORDER.
-export const APPAREL_SIZE_OPTIONS: ApparelSize[] = ['S', 'M', 'L', 'XL', 'XXL']
+export const APPAREL_SIZE_OPTIONS: ApparelSize[] = ['S', 'M', 'L', 'XL', '2XL', '3XL']
 export const PRODUCT_LIFECYCLE_STATUS_OPTIONS: ProductLifecycleStatus[] = [
   'DRAFT', 'READY_FOR_REVIEW', 'ACTIVE', 'DISCONTINUED', 'ARCHIVED',
 ]

@@ -105,7 +105,7 @@ import { handleCors } from '../_shared/cors.ts'
 import { createLogger } from '../_shared/logger.ts'
 import { jsonError, jsonResponse, unauthorized } from '../_shared/response.ts'
 import { createAdminClient, createUserClient } from '../_shared/supabase.ts'
-import { isLicensedSchool } from '../_shared/licensed-schools.ts'
+import { validateClcSchool } from '../_shared/licensed-schools.ts'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -113,6 +113,9 @@ const UUID_RE           = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9
 const VALID_LICENSE_BODIES = new Set(['CLC', 'ARMY', 'NONE'])
 const VALID_PRODUCT_CATEGORIES = new Set(['COLLECTIBLE', 'APPAREL'])
 const VALID_LIFECYCLE_STATUSES = new Set(['DRAFT', 'READY_FOR_REVIEW', 'ACTIVE', 'DISCONTINUED', 'ARCHIVED'])
+
+// PostgreSQL unique_violation error code
+const PG_UNIQUE_VIOLATION = '23505'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -139,6 +142,7 @@ interface ExistingProduct {
   school:             string | null
   license_body:       string
   category:           string
+  size:               string | null
   style_key:          string | null
   royalty_rate:       number | null
   cost_cents:         number
@@ -273,7 +277,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     const { data: existing, error: fetchError } = await admin
       .from('products')
-      .select('id, sku, school, license_body, category, style_key, royalty_rate, cost_cents, retail_price_cents, is_active')
+      .select('id, sku, school, license_body, category, size, style_key, royalty_rate, cost_cents, retail_price_cents, is_active')
       .eq('id', body.product_id)
       .single()
 
@@ -348,25 +352,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
       }
     }
 
-    // A CLC product's royalty obligation and storefront/nav visibility are
-    // both keyed off `school`. Checking only the incoming `body.school` (when
-    // present) missed two bypasses: switching license_body to 'CLC' without
-    // touching school, and school already being null/unlicensed before this
-    // edit. Resolve the effective post-update school and validate it
-    // whenever the effective license_body is CLC, matching create-product.
+    // Checking only the incoming `body.school` (when present) missed two
+    // bypasses: switching license_body to 'CLC' without touching school, and
+    // school already being null/unlicensed before this edit. Resolve the
+    // effective post-update school and run it through the same shared
+    // validator create-product and assign-product-license use.
     const effectiveSchool = body.school !== undefined ? body.school : current.school
-    if (
-      effectiveLicenseBody === 'CLC' &&
-      (effectiveSchool === null || !isLicensedSchool(effectiveSchool))
-    ) {
-      return jsonError(
-        req,
-        effectiveSchool === null
-          ? "school is required when license_body is 'CLC'."
-          : `school '${effectiveSchool}' is not on the licensed-schools allowlist for CLC products. ` +
-            'Add the license before assigning a product to this school.',
-        400,
-      )
+    const clcSchoolError = validateClcSchool(effectiveLicenseBody, effectiveSchool)
+    if (clcSchoolError !== null) {
+      return jsonError(req, clcSchoolError, 400)
     }
 
     // license_body
@@ -492,6 +486,30 @@ Deno.serve(async (req: Request): Promise<Response> => {
       .single()
 
     if (updateError !== null) {
+      // color is the only apparel field this endpoint can still change once a
+      // style_key exists — editing it into a value another sibling (same
+      // style_key + size) already has hits the same unique constraint
+      // create-product's insert enforces. Give the same clear 409 here too,
+      // rather than falling through to a generic 500.
+      if (
+        updateError.code === PG_UNIQUE_VIOLATION &&
+        updateError.message.includes('products_apparel_variant_unique')
+      ) {
+        authedLog.warn('Duplicate apparel variant', {
+          style_key: current.style_key,
+          size:      current.size,
+          color:     patch.color ?? null,
+        })
+        return jsonError(
+          req,
+          `A product already exists for this exact size/color combination ` +
+          `(style_key '${current.style_key}', size '${current.size}'` +
+          `${patch.color ? `, color '${patch.color}'` : ''}). ` +
+          'Each size/color combination may only be represented by one product.',
+          409,
+        )
+      }
+
       const gtgMatch = updateError.message.match(/\[GTG\][^.]+\./)
       authedLog.error('Product update failed', { error: updateError.message })
       return jsonError(req, gtgMatch ? gtgMatch[0] : 'Internal server error', 500)

@@ -10,7 +10,7 @@
 import type { ProductCategory, ApparelSize } from '@gtg/types'
 
 const VALID_PRODUCT_CATEGORIES: readonly ProductCategory[] = ['COLLECTIBLE', 'APPAREL']
-const VALID_APPAREL_SIZES: readonly ApparelSize[] = ['S', 'M', 'L', 'XL', 'XXL']
+const VALID_APPAREL_SIZES: readonly ApparelSize[] = ['S', 'M', 'L', 'XL', '2XL', '3XL']
 
 export function isProductCategory(value: string): value is ProductCategory {
   return VALID_PRODUCT_CATEGORIES.includes(value as ProductCategory)

@@ -9,6 +9,8 @@
 -- Alters:
 --   table public.products                    adds category, lifecycle_status,
 --                                             size, color, style_key
+--   index products_apparel_variant_unique    one row per (style_key, size,
+--                                             color) — no duplicate variants
 --
 -- See docs/adr/0001-style-key-immutability.md and
 -- docs/adr/0002-apparel-variant-model-and-phasing.md for the design rationale:
@@ -64,7 +66,7 @@ alter table public.products
 -- Size is constrained to a fixed set when present.
 alter table public.products
   add constraint products_size_valid
-  check (size is null or size in ('S', 'M', 'L', 'XL', 'XXL'));
+  check (size is null or size in ('S', 'M', 'L', 'XL', '2XL', '3XL'));
 
 alter table public.products
   add constraint products_color_nonempty
@@ -127,6 +129,17 @@ create index products_category_active_idx
   on public.products (category)
   where is_active = true;
 
+-- Prevents two rows from representing the same logical apparel variant
+-- (same design + size + color) under different SKUs — a data-entry error
+-- that would silently split one physical variant's inventory and reporting
+-- across two product rows. Not filtered by is_active: a deactivated
+-- duplicate is still the same logical variant. coalesce() is required
+-- because Postgres unique indexes treat NULL as distinct from NULL, which
+-- would otherwise let multiple colorless variants of the same size through.
+create unique index products_apparel_variant_unique
+  on public.products (style_key, size, (coalesce(color, '')))
+  where category = 'APPAREL' and style_key is not null;
+
 -- ─── Column Documentation ─────────────────────────────────────────────────────
 
 comment on column public.products.category is
@@ -139,7 +152,7 @@ comment on column public.products.lifecycle_status is
   'flag today. See docs/adr/0007-product-lifecycle.md.';
 
 comment on column public.products.size is
-  'Apparel size (S/M/L/XL/XXL). Null for collectibles. Required for APPAREL.';
+  'Apparel size (S/M/L/XL/2XL/3XL). Null for collectibles. Required for APPAREL.';
 
 comment on column public.products.color is
   'Apparel color, free text. Null for collectibles. Optional for APPAREL.';

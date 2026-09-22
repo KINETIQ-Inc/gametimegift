@@ -12,7 +12,7 @@
 import { getLicensedSchoolCode } from './licensed-schools.ts'
 
 export const VALID_PRODUCT_CATEGORIES = new Set(['COLLECTIBLE', 'APPAREL'])
-export const VALID_APPAREL_SIZES = new Set(['S', 'M', 'L', 'XL', 'XXL'])
+export const VALID_APPAREL_SIZES = new Set(['S', 'M', 'L', 'XL', '2XL', '3XL'])
 export const GARMENT_TYPES = new Set(['HOODIE', 'TEE', 'LS_TEE', 'CREWNECK'])
 
 /**

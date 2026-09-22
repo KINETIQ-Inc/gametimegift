@@ -11,7 +11,7 @@ import type { ApparelSize } from '@gtg/types'
 import { getLicensedSchoolCode } from './licensed-schools'
 
 /** Canonical display order for apparel sizes, smallest to largest. */
-export const APPAREL_SIZE_ORDER: readonly ApparelSize[] = ['S', 'M', 'L', 'XL', 'XXL']
+export const APPAREL_SIZE_ORDER: readonly ApparelSize[] = ['S', 'M', 'L', 'XL', '2XL', '3XL']
 
 export function compareApparelSizes(a: ApparelSize, b: ApparelSize): number {
   return APPAREL_SIZE_ORDER.indexOf(a) - APPAREL_SIZE_ORDER.indexOf(b)

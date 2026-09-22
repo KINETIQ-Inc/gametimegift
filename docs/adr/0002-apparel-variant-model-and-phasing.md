@@ -5,14 +5,14 @@ Accepted
 
 ## Context
 
-The business needs t-shirts and hoodies with size (S–XL) and color options
+The business needs t-shirts and hoodies with size (S/M/L/XL/2XL/3XL) and color options
 alongside the existing collectible catalog. Every product today maps 1:1 to
 `serialized_units` for hologram/serial tracking
 (`packages/types/src/inventory.ts:56-100`) — each physical unit is individually
 serialized and audited, including (per the compliance model already in place)
 apparel, not just collectibles.
 
-Two designs were considered for representing "one hoodie design, five sizes":
+Two designs were considered for representing "one hoodie design, six sizes":
 
 1. **A `product_variants` table** — one parent "design" row, many child variant
    rows underneath it, each variant carrying its own inventory/serial linkage.

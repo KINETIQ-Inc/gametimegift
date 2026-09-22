@@ -45,7 +45,7 @@
  * ─── Apparel (category, size, color, style_key) ───────────────────────────────
  *
  * category defaults to 'COLLECTIBLE' when omitted. When category = 'APPAREL':
- *   - size (S/M/L/XL/XXL) and garment_type (HOODIE/TEE/LS_TEE/CREWNECK) are
+ *   - size (S/M/L/XL/2XL/3XL) and garment_type (HOODIE/TEE/LS_TEE/CREWNECK) are
  *     required; color is optional.
  *   - school must be a licensed school (see _shared/licensed-schools.ts) —
  *     style_key is generated from it.
@@ -109,7 +109,7 @@ import { handleCors } from '../_shared/cors.ts'
 import { createLogger } from '../_shared/logger.ts'
 import { jsonError, jsonResponse, unauthorized } from '../_shared/response.ts'
 import { createAdminClient, createUserClient } from '../_shared/supabase.ts'
-import { isLicensedSchool } from '../_shared/licensed-schools.ts'
+import { isLicensedSchool, validateClcSchool } from '../_shared/licensed-schools.ts'
 import { VALID_PRODUCT_CATEGORIES, generateStyleKey, validateApparelFields } from '../_shared/apparel.ts'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -196,16 +196,11 @@ function validate(body: RequestBody): string | null {
     return "license_body must be one of: 'CLC', 'ARMY', 'NONE'."
   }
 
-  // A CLC product's royalty obligation and storefront/nav visibility are both
-  // keyed off `school`. Validating school only "when provided" left `school`
-  // entirely omittable, so a CLC product could be created with no school at
-  // all and no allowlist check ever ran. school is required for every CLC
-  // product, not just apparel ones.
-  if (body.license_body === 'CLC' && (body.school === undefined || !isLicensedSchool(body.school))) {
-    return body.school === undefined
-      ? "school is required when license_body is 'CLC'."
-      : `school '${body.school}' is not on the licensed-schools allowlist for CLC products. ` +
-        'Add the license before creating a product for this school.'
+  // Shared with edit-product and assign-product-license so every path that
+  // can leave a product with license_body = 'CLC' enforces the same rule.
+  const clcSchoolError = validateClcSchool(body.license_body, body.school)
+  if (clcSchoolError !== null) {
+    return clcSchoolError
   }
 
   // style_key is never client-supplied — computed server-side from school +
@@ -372,8 +367,29 @@ Deno.serve(async (req: Request): Promise<Response> => {
       .single()
 
     if (insertError !== null) {
-      // SKU conflict — surface as 409 with a clear message
       if (insertError.code === PG_UNIQUE_VIOLATION) {
+        // Two distinct unique constraints can raise this same code —
+        // disambiguate by constraint name so the message actually matches
+        // what went wrong (see products_apparel_variant_unique in the
+        // apparel migration).
+        if (insertError.message.includes('products_apparel_variant_unique')) {
+          authedLog.warn('Duplicate apparel variant', {
+            style_key: styleKey,
+            size:      body.size,
+            color:     body.color ?? null,
+          })
+          return jsonError(
+            req,
+            `A product already exists for this exact size/color combination ` +
+            `(style_key '${styleKey}', size '${body.size}'` +
+            `${body.color ? `, color '${body.color}'` : ''}). ` +
+            'Each size/color combination may only be represented by one product — ' +
+            'edit the existing one instead of creating a duplicate.',
+            409,
+          )
+        }
+
+        // SKU conflict — surface as 409 with a clear message
         authedLog.warn('SKU conflict', { sku: body.sku })
         return jsonError(
           req,

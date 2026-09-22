@@ -28,7 +28,7 @@ import { lazy, Suspense, useState, useEffect } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { AlertBanner, Button, Heading } from '@gtg/ui'
 import { formatUsdCents } from '@gtg/utils'
-import { APPAREL_SIZE_ORDER, type ProductListItem } from '@gtg/api'
+import { APPAREL_SIZE_ORDER, listProducts, type ProductListItem } from '@gtg/api'
 import { trackStorefrontEvent } from '../analytics'
 import { useStorefront } from '../contexts/useStorefront'
 import { SiteNav } from '../components/nav/SiteNav'
@@ -322,10 +322,21 @@ function ProductDetail({
     ? Array.from(new Set(variants.map((v) => v.color).filter((c): c is string => Boolean(c))))
     : []
 
+  // Exact (size, color) match only — no substitution. If a shopper has
+  // Color=Red selected and clicks a Size that only exists in Blue, that
+  // combination doesn't exist as a product; the button is disabled for that
+  // exact reason (see isVariantAvailable below) rather than silently
+  // switching them to the Blue version of that size.
+  function findVariant(size: string, color: string | null): ProductListItem | undefined {
+    return variants.find((v) => v.size === size && v.color === color)
+  }
+
+  function isVariantAvailable(size: string, color: string | null): boolean {
+    return findVariant(size, color) !== undefined
+  }
+
   function selectVariant(nextSize: string, nextColor: string | null): void {
-    const exactMatch = variants.find((v) => v.size === nextSize && v.color === nextColor)
-    const sizeMatch = variants.find((v) => v.size === nextSize)
-    const match = exactMatch ?? sizeMatch
+    const match = findVariant(nextSize, nextColor)
     if (match) onSelectVariant(match)
   }
   const bundleOptions: Array<{
@@ -431,17 +442,23 @@ function ProductDetail({
                     <div className="variant-picker-group">
                       <span className="variant-picker-label">Size</span>
                       <div className="variant-picker-options" role="group" aria-label="Select size">
-                        {availableSizes.map((size) => (
-                          <button
-                            key={size}
-                            type="button"
-                            className={`variant-picker-option ${product.size === size ? 'variant-picker-option--active' : ''}`}
-                            aria-pressed={product.size === size}
-                            onClick={() => selectVariant(size, product.color)}
-                          >
-                            {size}
-                          </button>
-                        ))}
+                        {availableSizes.map((size) => {
+                          const available = size === product.size || isVariantAvailable(size, product.color)
+                          return (
+                            <button
+                              key={size}
+                              type="button"
+                              className={`variant-picker-option ${product.size === size ? 'variant-picker-option--active' : ''}`}
+                              aria-pressed={product.size === size}
+                              disabled={!available}
+                              aria-disabled={!available}
+                              title={available ? undefined : `Size ${size} is not available in ${product.color ?? 'this color'}`}
+                              onClick={() => selectVariant(size, product.color)}
+                            >
+                              {size}
+                            </button>
+                          )
+                        })}
                       </div>
                     </div>
                   ) : null}
@@ -449,17 +466,23 @@ function ProductDetail({
                     <div className="variant-picker-group">
                       <span className="variant-picker-label">Color</span>
                       <div className="variant-picker-options" role="group" aria-label="Select color">
-                        {availableColors.map((color) => (
-                          <button
-                            key={color}
-                            type="button"
-                            className={`variant-picker-option ${product.color === color ? 'variant-picker-option--active' : ''}`}
-                            aria-pressed={product.color === color}
-                            onClick={() => selectVariant(product.size ?? availableSizes[0] ?? '', color)}
-                          >
-                            {color}
-                          </button>
-                        ))}
+                        {availableColors.map((color) => {
+                          const available = color === product.color || isVariantAvailable(product.size ?? '', color)
+                          return (
+                            <button
+                              key={color}
+                              type="button"
+                              className={`variant-picker-option ${product.color === color ? 'variant-picker-option--active' : ''}`}
+                              aria-pressed={product.color === color}
+                              disabled={!available}
+                              aria-disabled={!available}
+                              title={available ? undefined : `${color} is not available in size ${product.size ?? 'this size'}`}
+                              onClick={() => selectVariant(product.size ?? availableSizes[0] ?? '', color)}
+                            >
+                              {color}
+                            </button>
+                          )
+                        })}
                       </div>
                     </div>
                   ) : null}
@@ -690,9 +713,36 @@ export function ProductPage() {
 
   // Sibling apparel rows sharing this product's style_key — the whole
   // size/color family (docs/adr/0002-apparel-variant-model-and-phasing.md).
-  const variants = product && product.category === 'APPAREL' && product.style_key
-    ? products.filter((p) => p.style_key === product.style_key)
-    : []
+  // Fetched directly by style_key rather than filtered from whatever page of
+  // `products` happens to already be loaded — the storefront's default list
+  // call is paginated/limited, so a sibling could easily be outside that
+  // window even though it exists in the catalog.
+  const [variants, setVariants] = useState<ProductListItem[]>([])
+
+  useEffect(() => {
+    if (!product || product.category !== 'APPAREL' || !product.style_key) {
+      setVariants([])
+      return
+    }
+
+    let cancelled = false
+    const styleKey = product.style_key
+
+    listProducts({ style_key: styleKey })
+      .then((result) => {
+        if (!cancelled) setVariants(result.products)
+      })
+      .catch(() => {
+        // Sibling fetch is an enhancement (size/color picker), not the core
+        // page load — fall back to whatever's already in the loaded catalog
+        // rather than breaking the product page over it.
+        if (!cancelled) {
+          setVariants(products.filter((p) => p.style_key === styleKey))
+        }
+      })
+
+    return () => { cancelled = true }
+  }, [product, products])
 
   // Track page view
   useEffect(() => {
