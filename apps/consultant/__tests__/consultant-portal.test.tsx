@@ -207,6 +207,13 @@ describe('consultant portal revenue engine', () => {
     expect(await screen.findByRole('status', { name: 'Loading dashboard' })).toBeInTheDocument()
     // Stats cards must not render during initial load.
     expect(screen.queryByText('Gross sales this month')).not.toBeInTheDocument()
+    // Regression guard: the detail panels must show their own loading state,
+    // not a premature "no orders/commissions" empty state, while the fetch
+    // that would tell them whether that's true is still pending.
+    expect(screen.queryByText('No orders yet this month')).not.toBeInTheDocument()
+    expect(screen.queryByText('No commission entries this month')).not.toBeInTheDocument()
+    expect(await screen.findByRole('status', { name: 'Loading recent orders' })).toBeInTheDocument()
+    expect(screen.getByRole('status', { name: 'Loading recent commission entries' })).toBeInTheDocument()
   })
 
   it('shows the empty state when a consultant has no sales in the period', async () => {
@@ -243,8 +250,18 @@ describe('consultant portal revenue engine', () => {
 
     renderApp('/dashboard')
 
+    // findByText retries/polls, so this genuinely waits for the load to
+    // finish (auth check, then the dashboard's own fetch) rather than
+    // asserting against whatever's on screen right now — a plain waitFor on
+    // the loading indicator's absence is not equivalent here, since that
+    // indicator doesn't exist at all until DashboardPage itself mounts past
+    // the "Checking session…" auth screen, which would make it resolve
+    // (falsely) immediately.
+    //
     // The dashboard shows zero-value stat cards (not hidden) plus two
-    // section-level empty states, one per record list.
+    // section-level empty states, one per record list — only once loading
+    // has actually confirmed there are zero records, never before (see the
+    // "shows a loading skeleton" test above for the negative case).
     expect(await screen.findByText('No orders yet this month')).toBeInTheDocument()
     expect(screen.getByText('No commission entries this month')).toBeInTheDocument()
     expect(screen.getByText('Gross sales this month')).toBeInTheDocument()
