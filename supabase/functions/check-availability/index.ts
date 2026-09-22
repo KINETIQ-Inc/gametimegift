@@ -189,9 +189,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     const { data: products, error: productError } = await createAdminClient()
       .from('products')
-      .select('id, sku, name, license_body:license_type, retail_price_cents:price')
+      .select('id, sku, name, license_body, retail_price_cents')
       .in('id', uniqueIds)
-      .eq('active', true)
+      .eq('is_active', true)
 
     if (productError !== null) {
       authedLog.error('Products query failed', { error: productError.message })
