@@ -126,7 +126,7 @@ interface ProductRow {
   name:               string
   license_body:       string
   retail_price_cents: number
-  active:          boolean
+  is_active:          boolean
 }
 
 interface ConsultantRow {
@@ -323,14 +323,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     // ── Step 5: Verify product exists and is active ──────────────────────────────
     //
-    // Explicit .eq('active', true) — products table uses `active`, not `is_active`.
+    // Explicit .eq('is_active', true), matching the real products schema
+    // (supabase/migrations/20260305000001_create_products.sql). This query
+    // previously referenced columns that don't exist on that schema at all
+    // and 500'd on every real invocation — see list-products/index.ts's own
+    // history comment for the full story on that mistake; fixed here too.
     // A 404 from this query means not found or inactive.
 
     const { data: productData, error: productError } = await admin
       .from('products')
-      .select('id, sku, name, license_body:license_type, retail_price_cents:price, active')
+      .select('id, sku, name, license_body, retail_price_cents, is_active')
       .eq('id', body.product_id)
-      .eq('active', true)
+      .eq('is_active', true)
       .single()
 
     if (productError !== null || productData === null) {

@@ -2,6 +2,11 @@ import type { ProductListItem } from '@gtg/api'
 
 export type LicenseFilter = 'ALL' | 'CLC' | 'ARMY' | 'NONE'
 export type SportFilter = 'ALL' | 'FOOTBALL' | 'BASKETBALL' | 'SOCCER' | 'BASEBALL' | 'HOCKEY'
+export type CategoryFilter = 'ALL' | 'COLLECTIBLE' | 'APPAREL'
+
+export function getCategoryFromProduct(product: ProductListItem): 'COLLECTIBLE' | 'APPAREL' {
+  return product.category
+}
 
 export interface ProductRoute {
   kind: 'home' | 'product'
@@ -189,6 +194,7 @@ export function filterProducts(
   products: ProductListItem[],
   licenseFilter: LicenseFilter,
   sportFilter: SportFilter,
+  categoryFilter: CategoryFilter = 'ALL',
 ): ProductListItem[] {
   return products.filter((product) => {
     const licenseMatch =
@@ -196,11 +202,15 @@ export function filterProducts(
       (licenseFilter === 'ARMY'
         ? matchesMilitaryCollection(product)
         : product.license_body === licenseFilter)
+    // Apparel has no sport dimension — callers are expected to keep
+    // sportFilter at 'ALL' while categoryFilter is 'APPAREL' (see ShopPage's
+    // handleCategorySelect), so this only ever gates COLLECTIBLE browsing.
     const sportMatch =
       sportFilter === 'ALL' ||
       sportFilter === 'FOOTBALL' ||
       getSportFromProduct(product) === sportFilter
-    return licenseMatch && sportMatch
+    const categoryMatch = categoryFilter === 'ALL' || getCategoryFromProduct(product) === categoryFilter
+    return licenseMatch && sportMatch && categoryMatch
   })
 }
 

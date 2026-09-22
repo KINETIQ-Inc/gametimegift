@@ -57,6 +57,12 @@ beforeEach(() => {
     functions: {
       invoke: invokeMock,
     },
+    // invokeFunction() resolves an auth header via getSession() before every
+    // call (see transport.ts's resolveAuthHeader()) — the mock client must
+    // provide this or every wrapped call throws before reaching `invoke`.
+    auth: {
+      getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
+    },
   } as unknown as ReturnType<typeof getSupabaseClient>)
 })
 
@@ -69,9 +75,9 @@ describe('API wrapper invoked edge functions', () => {
 
     await listProducts({ search: 'jersey', limit: 10, offset: 0 })
 
-    expect(invokeMock).toHaveBeenCalledWith('list-products', {
+    expect(invokeMock).toHaveBeenCalledWith('list-products', expect.objectContaining({
       body: { search: 'jersey', limit: 10, offset: 0 },
-    })
+    }))
   })
 
   it('createProduct invokes create-product', async () => {
@@ -132,9 +138,9 @@ describe('API wrapper invoked edge functions', () => {
 
     await updateProduct({ product_id: UUID, name: 'Updated' })
 
-    expect(invokeMock).toHaveBeenCalledWith('edit-product', {
+    expect(invokeMock).toHaveBeenCalledWith('edit-product', expect.objectContaining({
       body: { product_id: UUID, name: 'Updated' },
-    })
+    }))
   })
 
   it('assignProductLicense invokes assign-product-license', async () => {
@@ -154,9 +160,9 @@ describe('API wrapper invoked edge functions', () => {
 
     await assignProductLicense({ product_id: UUID, license_body: 'CLC' })
 
-    expect(invokeMock).toHaveBeenCalledWith('assign-product-license', {
+    expect(invokeMock).toHaveBeenCalledWith('assign-product-license', expect.objectContaining({
       body: { product_id: UUID, license_body: 'CLC' },
-    })
+    }))
   })
 
   it('getCommissionSummary invokes commission-summary', async () => {
@@ -189,13 +195,13 @@ describe('API wrapper invoked edge functions', () => {
 
     await getCommissionSummary({ consultantId: UUID, fromDate: '2026-01-01', toDate: '2026-01-31' })
 
-    expect(invokeMock).toHaveBeenCalledWith('commission-summary', {
+    expect(invokeMock).toHaveBeenCalledWith('commission-summary', expect.objectContaining({
       body: {
         consultant_id: UUID,
         from_date: '2026-01-01',
         to_date: '2026-01-31',
       },
-    })
+    }))
   })
 
   it('getConsultantUnitsSold invokes get-consultant-units-sold', async () => {
@@ -228,13 +234,13 @@ describe('API wrapper invoked edge functions', () => {
       periodEnd: '2026-01-31',
     })
 
-    expect(invokeMock).toHaveBeenCalledWith('get-consultant-units-sold', {
+    expect(invokeMock).toHaveBeenCalledWith('get-consultant-units-sold', expect.objectContaining({
       body: {
         consultant_id: UUID,
         period_start: '2026-01-01',
         period_end: '2026-01-31',
       },
-    })
+    }))
   })
 
   it('getConsultantCommissionEarned invokes get-consultant-commission-earned', async () => {
@@ -268,13 +274,13 @@ describe('API wrapper invoked edge functions', () => {
       periodEnd: '2026-01-31',
     })
 
-    expect(invokeMock).toHaveBeenCalledWith('get-consultant-commission-earned', {
+    expect(invokeMock).toHaveBeenCalledWith('get-consultant-commission-earned', expect.objectContaining({
       body: {
         consultant_id: UUID,
         period_start: '2026-01-01',
         period_end: '2026-01-31',
       },
-    })
+    }))
   })
 
   it('getConsultantPendingPayouts invokes get-consultant-pending-payouts', async () => {
@@ -293,9 +299,9 @@ describe('API wrapper invoked edge functions', () => {
 
     await getConsultantPendingPayouts({ consultantId: UUID })
 
-    expect(invokeMock).toHaveBeenCalledWith('get-consultant-pending-payouts', {
+    expect(invokeMock).toHaveBeenCalledWith('get-consultant-pending-payouts', expect.objectContaining({
       body: { consultant_id: UUID },
-    })
+    }))
   })
 
   it('viewConsultantPerformance invokes view-consultant-performance', async () => {
@@ -328,12 +334,12 @@ describe('API wrapper invoked edge functions', () => {
 
     await viewConsultantPerformance({ consultantId: UUID, yearMonth: '2026-01' })
 
-    expect(invokeMock).toHaveBeenCalledWith('view-consultant-performance', {
+    expect(invokeMock).toHaveBeenCalledWith('view-consultant-performance', expect.objectContaining({
       body: {
         consultant_id: UUID,
         year_month: '2026-01',
       },
-    })
+    }))
   })
 
   it('getReferralLink invokes get-referral-link', async () => {
@@ -355,9 +361,9 @@ describe('API wrapper invoked edge functions', () => {
 
     await getReferralLink({ consultantId: UUID })
 
-    expect(invokeMock).toHaveBeenCalledWith('get-referral-link', {
+    expect(invokeMock).toHaveBeenCalledWith('get-referral-link', expect.objectContaining({
       body: { consultant_id: UUID },
-    })
+    }))
   })
 
   it('resolveConsultantCode invokes resolve-consultant-code', async () => {
@@ -374,11 +380,11 @@ describe('API wrapper invoked edge functions', () => {
 
     await resolveConsultantCode('gtg-test1')
 
-    expect(invokeMock).toHaveBeenCalledWith('resolve-consultant-code', {
+    expect(invokeMock).toHaveBeenCalledWith('resolve-consultant-code', expect.objectContaining({
       body: {
         referral_code: 'GTG-TEST1',
       },
-    })
+    }))
   })
 
   it('getRoyaltySummary invokes calculate-royalties-owed', async () => {
@@ -396,9 +402,9 @@ describe('API wrapper invoked edge functions', () => {
 
     await getRoyaltySummary('2026-01')
 
-    expect(invokeMock).toHaveBeenCalledWith('calculate-royalties-owed', {
+    expect(invokeMock).toHaveBeenCalledWith('calculate-royalties-owed', expect.objectContaining({
       body: { year_month: '2026-01' },
-    })
+    }))
   })
 
   it('getClcRoyaltyReport invokes generate-clc-report', async () => {
@@ -453,9 +459,9 @@ describe('API wrapper invoked edge functions', () => {
 
     await getClcRoyaltyReport('2026-01')
 
-    expect(invokeMock).toHaveBeenCalledWith('generate-clc-report', {
+    expect(invokeMock).toHaveBeenCalledWith('generate-clc-report', expect.objectContaining({
       body: { year_month: '2026-01' },
-    })
+    }))
   })
 
   it('getArmyRoyaltyReport invokes generate-army-report', async () => {
@@ -510,9 +516,9 @@ describe('API wrapper invoked edge functions', () => {
 
     await getArmyRoyaltyReport('2026-03')
 
-    expect(invokeMock).toHaveBeenCalledWith('generate-army-report', {
+    expect(invokeMock).toHaveBeenCalledWith('generate-army-report', expect.objectContaining({
       body: { year_month: '2026-03' },
-    })
+    }))
   })
 
   it('exportRoyaltyCsv invokes export-royalty-csv with accept header', async () => {
@@ -523,7 +529,7 @@ describe('API wrapper invoked edge functions', () => {
 
     await exportRoyaltyCsv({ licenseBody: 'CLC', yearMonth: '2026-01' })
 
-    expect(invokeMock).toHaveBeenCalledWith('export-royalty-csv', {
+    expect(invokeMock).toHaveBeenCalledWith('export-royalty-csv', expect.objectContaining({
       body: {
         license_body: 'CLC',
         year_month: '2026-01',
@@ -531,7 +537,7 @@ describe('API wrapper invoked edge functions', () => {
       headers: {
         Accept: 'text/csv',
       },
-    })
+    }))
   })
 
   it('submitOrder invokes process-order-ledger', async () => {
@@ -552,9 +558,9 @@ describe('API wrapper invoked edge functions', () => {
 
     await submitOrder({ orderId: UUID })
 
-    expect(invokeMock).toHaveBeenCalledWith('process-order-ledger', {
+    expect(invokeMock).toHaveBeenCalledWith('process-order-ledger', expect.objectContaining({
       body: { order_id: UUID },
-    })
+    }))
   })
 
   it('processOrderLedger invokes process-order-ledger', async () => {
@@ -575,9 +581,9 @@ describe('API wrapper invoked edge functions', () => {
 
     await processOrderLedger({ orderId: UUID })
 
-    expect(invokeMock).toHaveBeenCalledWith('process-order-ledger', {
+    expect(invokeMock).toHaveBeenCalledWith('process-order-ledger', expect.objectContaining({
       body: { order_id: UUID },
-    })
+    }))
   })
 
   it('createCheckoutSession invokes create-checkout-session', async () => {
@@ -609,7 +615,7 @@ describe('API wrapper invoked edge functions', () => {
       consultantId: UUID,
     })
 
-    expect(invokeMock).toHaveBeenCalledWith('create-checkout-session', {
+    expect(invokeMock).toHaveBeenCalledWith('create-checkout-session', expect.objectContaining({
       body: {
         product_id: UUID,
         customer_name: 'John Doe',
@@ -619,7 +625,7 @@ describe('API wrapper invoked edge functions', () => {
         idempotency_key: 'gtg-checkout-test-key-0001',
         consultant_id: UUID,
       },
-    })
+    }))
   })
 
   it('createOrder invokes create-order edge function', async () => {
@@ -649,7 +655,7 @@ describe('API wrapper invoked edge functions', () => {
       idempotencyKey: 'gtg-checkout-test-key-0002',
     })
 
-    expect(invokeMock).toHaveBeenCalledWith('create-order', {
+    expect(invokeMock).toHaveBeenCalledWith('create-order', expect.objectContaining({
       body: {
         product_id: UUID,
         quantity: 1,
@@ -657,7 +663,7 @@ describe('API wrapper invoked edge functions', () => {
         customer_email: 'john@example.com',
         idempotency_key: 'gtg-checkout-test-key-0002',
       },
-    })
+    }))
   })
 
   it('bulkUploadSerializedUnits invokes bulk-upload-units', async () => {
@@ -717,9 +723,9 @@ describe('API wrapper invoked edge functions', () => {
 
     await verifyHologramSerial('SER-1')
 
-    expect(invokeMock).toHaveBeenCalledWith('verify-serial', {
+    expect(invokeMock).toHaveBeenCalledWith('verify-serial', expect.objectContaining({
       body: { serial_number: 'SER-1' },
-    })
+    }))
   })
 
   it('viewUnitStatus invokes view-unit-status', async () => {
@@ -737,9 +743,9 @@ describe('API wrapper invoked edge functions', () => {
 
     await viewUnitStatus({ status: 'available', limit: 50, offset: 0 })
 
-    expect(invokeMock).toHaveBeenCalledWith('view-unit-status', {
+    expect(invokeMock).toHaveBeenCalledWith('view-unit-status', expect.objectContaining({
       body: { status: 'available', limit: 50, offset: 0 },
-    })
+    }))
   })
 
   it('viewUnitHistory invokes view-unit-history', async () => {
@@ -758,9 +764,9 @@ describe('API wrapper invoked edge functions', () => {
 
     await viewUnitHistory({ unit_id: UUID })
 
-    expect(invokeMock).toHaveBeenCalledWith('view-unit-history', {
+    expect(invokeMock).toHaveBeenCalledWith('view-unit-history', expect.objectContaining({
       body: { unit_id: UUID },
-    })
+    }))
   })
 
   it('getUnitStatus invokes get-unit-status', async () => {
@@ -789,9 +795,9 @@ describe('API wrapper invoked edge functions', () => {
 
     await getUnitStatus({ serial_number: 'SER-1' })
 
-    expect(invokeMock).toHaveBeenCalledWith('get-unit-status', {
+    expect(invokeMock).toHaveBeenCalledWith('get-unit-status', expect.objectContaining({
       body: { serial_number: 'SER-1' },
-    })
+    }))
   })
 
   it('createFraudFlag invokes create-fraud-flag', async () => {
@@ -816,7 +822,7 @@ describe('API wrapper invoked edge functions', () => {
       description: 'Fraud signal captured.',
     })
 
-    expect(invokeMock).toHaveBeenCalledWith('create-fraud-flag', {
+    expect(invokeMock).toHaveBeenCalledWith('create-fraud-flag', expect.objectContaining({
       body: {
         unit_id: UUID,
         source: 'admin_manual',
@@ -827,7 +833,7 @@ describe('API wrapper invoked edge functions', () => {
         reporting_licensor: undefined,
         signal_metadata: undefined,
       },
-    })
+    }))
   })
 
   it('viewFraudEvents invokes view-fraud-events', async () => {
@@ -850,14 +856,14 @@ describe('API wrapper invoked edge functions', () => {
       offset: 0,
     })
 
-    expect(invokeMock).toHaveBeenCalledWith('view-fraud-events', {
+    expect(invokeMock).toHaveBeenCalledWith('view-fraud-events', expect.objectContaining({
       body: {
         status: ['open', 'under_review'],
         severity: ['high', 'critical'],
         limit: 50,
         offset: 0,
       },
-    })
+    }))
   })
 
   it('resolveFraudFlag invokes resolve-fraud-flag', async () => {
@@ -884,14 +890,14 @@ describe('API wrapper invoked edge functions', () => {
       resolution_note: 'confirmed',
     })
 
-    expect(invokeMock).toHaveBeenCalledWith('resolve-fraud-flag', {
+    expect(invokeMock).toHaveBeenCalledWith('resolve-fraud-flag', expect.objectContaining({
       body: {
         fraud_flag_id: UUID,
         resolution: 'confirmed',
         resolution_note: 'confirmed',
         release_reference_id: undefined,
       },
-    })
+    }))
   })
 
   it('getFraudWarning invokes get-fraud-warning', async () => {
@@ -912,8 +918,8 @@ describe('API wrapper invoked edge functions', () => {
 
     await getFraudWarning('SER-1')
 
-    expect(invokeMock).toHaveBeenCalledWith('get-fraud-warning', {
+    expect(invokeMock).toHaveBeenCalledWith('get-fraud-warning', expect.objectContaining({
       body: { serial_number: 'SER-1' },
-    })
+    }))
   })
 })

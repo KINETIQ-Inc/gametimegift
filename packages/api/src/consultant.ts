@@ -12,12 +12,18 @@
  */
 
 import type { ConsultantAddress } from '@gtg/types'
+import { isReferralCode, assertReferralCode } from '@gtg/domain'
 import { ApiRequestError } from './error'
 import { assertUuidV4 } from './_internal'
 import { getTableClient, invokeFunction } from './transport'
 import type { Database } from './transport'
 
 type ConsultantProfileRow = Database['public']['Tables']['consultant_profiles']['Row']
+
+// ─── Referral Code Format ───────────────────────────────────────────────────────
+// Re-exported from @gtg/domain — app code must not define this rule locally.
+
+export { isReferralCode, assertReferralCode }
 
 // ─── Get Profile ──────────────────────────────────────────────────────────────
 

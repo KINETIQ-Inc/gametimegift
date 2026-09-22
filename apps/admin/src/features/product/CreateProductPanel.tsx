@@ -1,7 +1,8 @@
 import type { FormEvent } from 'react'
 import { Button, Heading } from '@gtg/ui'
-import type { CreateFormState, LicenseBody } from './types'
-import { LICENSE_OPTIONS } from './types'
+import { LICENSED_SCHOOLS, generateStyleKey } from '@gtg/api'
+import type { CreateFormState, LicenseBody, ProductCategory, ApparelSize, GarmentType } from './types'
+import { LICENSE_OPTIONS, PRODUCT_CATEGORY_OPTIONS, GARMENT_TYPE_OPTIONS, APPAREL_SIZE_OPTIONS } from './types'
 
 interface CreateProductPanelProps {
   form: CreateFormState
@@ -12,6 +13,15 @@ interface CreateProductPanelProps {
 
 export function CreateProductPanel(props: CreateProductPanelProps) {
   const { form, submitting, onSubmit, onFormChange } = props
+
+  const isApparel = form.category === 'APPAREL'
+  // style_key is never admin-invented — it's computed from school + garment
+  // type (docs/adr/0001-style-key-immutability.md). Preview only; the actual
+  // value is computed server-side at creation.
+  const previewStyleKey = isApparel && form.school && form.garmentType
+    ? generateStyleKey(form.school, form.garmentType)
+    : null
+  const previewSku = previewStyleKey && form.size ? `${previewStyleKey}-${form.size}` : null
 
   return (
     <section className="panel">
@@ -43,11 +53,25 @@ export function CreateProductPanel(props: CreateProductPanelProps) {
         </label>
         <label>
           School
-          <input
-            value={form.school}
-            onChange={(e) => onFormChange({ ...form, school: e.target.value })}
-            placeholder="University of Florida"
-          />
+          {form.licenseBody === 'CLC' ? (
+            <select
+              value={form.school}
+              onChange={(e) => onFormChange({ ...form, school: e.target.value })}
+            >
+              <option value="">— Select a licensed school —</option>
+              {LICENSED_SCHOOLS.map((school) => (
+                <option key={school} value={school}>
+                  {school}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              value={form.school}
+              onChange={(e) => onFormChange({ ...form, school: e.target.value })}
+              placeholder="Optional — not applicable for most non-CLC products"
+            />
+          )}
         </label>
         <label>
           License Body
@@ -62,6 +86,87 @@ export function CreateProductPanel(props: CreateProductPanelProps) {
             ))}
           </select>
         </label>
+        <label>
+          Category
+          <select
+            value={form.category}
+            onChange={(e) => {
+              const category = e.target.value as ProductCategory
+              // Clear apparel fields when switching back to COLLECTIBLE so a
+              // stray size/color/garmentType can't be submitted for it.
+              onFormChange(
+                category === 'COLLECTIBLE'
+                  ? { ...form, category, garmentType: '', size: '', color: '' }
+                  : { ...form, category },
+              )
+            }}
+          >
+            {PRODUCT_CATEGORY_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </label>
+        {isApparel ? (
+          <>
+            <label>
+              Garment Type
+              <select
+                value={form.garmentType}
+                onChange={(e) => onFormChange({ ...form, garmentType: e.target.value as GarmentType })}
+              >
+                <option value="">— Select a garment type —</option>
+                {GARMENT_TYPE_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Size
+              <select
+                value={form.size}
+                onChange={(e) => onFormChange({ ...form, size: e.target.value as ApparelSize })}
+              >
+                <option value="">— Select a size —</option>
+                {APPAREL_SIZE_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Color (optional)
+              <input
+                value={form.color}
+                onChange={(e) => onFormChange({ ...form, color: e.target.value })}
+                placeholder="Navy"
+              />
+            </label>
+            {previewSku ? (
+              <p className="form-hint">
+                style_key will be <code>{previewStyleKey}</code> — suggested SKU:{' '}
+                <code>{previewSku}</code>
+                {form.sku !== previewSku ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => onFormChange({ ...form, sku: previewSku })}
+                  >
+                    Use this SKU
+                  </Button>
+                ) : null}
+              </p>
+            ) : (
+              <p className="form-hint">
+                Select a licensed school, garment type, and size to generate the style_key and SKU.
+              </p>
+            )}
+          </>
+        ) : null}
         <label>
           Royalty Rate (0-1)
           <input

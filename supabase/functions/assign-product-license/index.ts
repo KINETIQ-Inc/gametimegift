@@ -46,6 +46,15 @@
  *
  * For license_body = 'NONE': no license_holder lookup is performed.
  *
+ * ─── Licensed-school requirement (CLC) ───────────────────────────────────────
+ *
+ * Assigning license_body = 'CLC' requires the product's existing `school` to
+ * already be on the licensed-schools allowlist (see
+ * _shared/licensed-schools.ts's validateClcSchool — shared with create-product
+ * and edit-product). This endpoint never accepts `school` itself, so a
+ * product with no school, or a school not yet licensed, must be corrected via
+ * edit-product before it can be assigned CLC here.
+ *
  * ─── Authorization ────────────────────────────────────────────────────────────
  *
  * ADMIN_ROLES only: super_admin, admin.
@@ -95,6 +104,7 @@ import { handleCors } from '../_shared/cors.ts'
 import { createLogger } from '../_shared/logger.ts'
 import { jsonError, jsonResponse, unauthorized } from '../_shared/response.ts'
 import { createAdminClient, createUserClient } from '../_shared/supabase.ts'
+import { validateClcSchool } from '../_shared/licensed-schools.ts'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -113,6 +123,7 @@ interface RequestBody {
 interface ExistingProduct {
   id:           string
   sku:          string
+  school:       string | null
   license_body: string
   royalty_rate: number | null
   is_active:    boolean
@@ -217,7 +228,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     const { data: productRow, error: productError } = await admin
       .from('products')
-      .select('id, sku, license_body, royalty_rate, is_active')
+      .select('id, sku, school, license_body, royalty_rate, is_active')
       .eq('id', body.product_id)
       .single()
 
@@ -227,6 +238,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
     }
 
     const current = productRow as ExistingProduct
+
+    // This endpoint never takes `school` in its request body — it can only
+    // change license_body/royalty_rate — so the effective school for this
+    // check is always the product's existing school. Same shared validator
+    // as create-product and edit-product: assigning CLC here with no
+    // licensed school on file was a real bypass of both of those checks.
+    const clcSchoolError = validateClcSchool(body.license_body, current.school)
+    if (clcSchoolError !== null) {
+      return jsonError(req, clcSchoolError, 400)
+    }
 
     // ── Step 7: Fetch active license_holder (required for licensed bodies) ──────
 

@@ -33,11 +33,13 @@ vi.mock('@gtg/api', async () => {
   }
 })
 
-vi.mock('../src/contexts/StorefrontContext', () => ({
+// useStorefront/useStorefrontSession live in their own hook files, separate
+// from the provider components — mock those, not the provider modules.
+vi.mock('../src/contexts/useStorefront', () => ({
   useStorefront: useStorefrontMock,
 }))
 
-vi.mock('../src/contexts/StorefrontSessionContext', () => ({
+vi.mock('../src/contexts/useStorefrontSession', () => ({
   useStorefrontSession: useStorefrontSessionMock,
 }))
 

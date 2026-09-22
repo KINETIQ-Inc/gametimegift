@@ -1,7 +1,8 @@
 import type { FormEvent } from 'react'
 import { Button, Heading } from '@gtg/ui'
-import type { EditFormState, LicenseBody } from './types'
-import { LICENSE_OPTIONS } from './types'
+import { LICENSED_SCHOOLS } from '@gtg/api'
+import type { EditFormState, LicenseBody, ProductCategory, ProductLifecycleStatus } from './types'
+import { LICENSE_OPTIONS, PRODUCT_CATEGORY_OPTIONS, PRODUCT_LIFECYCLE_STATUS_OPTIONS } from './types'
 
 interface EditProductPanelProps {
   form: EditFormState
@@ -13,6 +14,14 @@ interface EditProductPanelProps {
 
 export function EditProductPanel(props: EditProductPanelProps) {
   const { form, submitting, onFormChange, onSubmit, onCancel } = props
+
+  const isApparel = form.category === 'APPAREL'
+  // Once a style_key exists, school/category are locked server-side too
+  // (edit-product rejects changes to either) — see
+  // docs/adr/0001-style-key-immutability.md. style_key is derived from
+  // school + garment type, so changing school out from under it would
+  // desync the two without ever touching style_key itself.
+  const identityLocked = isApparel && Boolean(form.styleKey)
 
   return (
     <section className="panel">
@@ -38,12 +47,28 @@ export function EditProductPanel(props: EditProductPanelProps) {
           />
         </label>
         <label>
-          School
-          <input
-            value={form.school}
-            onChange={(e) => onFormChange({ ...form, school: e.target.value })}
-            placeholder="University of Florida"
-          />
+          School{identityLocked ? ' (fixed — apparel identity)' : ''}
+          {identityLocked ? (
+            <input value={form.school} disabled />
+          ) : form.licenseBody === 'CLC' ? (
+            <select
+              value={form.school}
+              onChange={(e) => onFormChange({ ...form, school: e.target.value })}
+            >
+              <option value="">— Select a licensed school —</option>
+              {LICENSED_SCHOOLS.map((school) => (
+                <option key={school} value={school}>
+                  {school}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              value={form.school}
+              onChange={(e) => onFormChange({ ...form, school: e.target.value })}
+              placeholder="Optional — not applicable for most non-CLC products"
+            />
+          )}
         </label>
         <label>
           License Body
@@ -52,6 +77,60 @@ export function EditProductPanel(props: EditProductPanelProps) {
             onChange={(e) => onFormChange({ ...form, licenseBody: e.target.value as LicenseBody })}
           >
             {LICENSE_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Category{identityLocked ? ' (fixed — apparel identity)' : ''}
+          <select
+            value={form.category}
+            disabled={identityLocked}
+            onChange={(e) => onFormChange({ ...form, category: e.target.value as ProductCategory })}
+          >
+            {PRODUCT_CATEGORY_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </label>
+        {isApparel ? (
+          <>
+            <label>
+              Size (fixed at creation)
+              <input value={form.size ?? ''} disabled />
+            </label>
+            <label>
+              style_key (fixed at creation)
+              <input value={form.styleKey ?? ''} disabled />
+            </label>
+            <label>
+              Color
+              <input
+                value={form.color}
+                onChange={(e) => onFormChange({ ...form, color: e.target.value })}
+                placeholder="Navy"
+              />
+            </label>
+          </>
+        ) : null}
+        <label>
+          Lifecycle Status
+          <select
+            value={form.lifecycleStatus}
+            onChange={(e) => {
+              const lifecycleStatus = e.target.value as ProductLifecycleStatus
+              onFormChange({
+                ...form,
+                lifecycleStatus,
+                isActive: lifecycleStatus === 'ACTIVE',
+              })
+            }}
+          >
+            {PRODUCT_LIFECYCLE_STATUS_OPTIONS.map((option) => (
               <option key={option} value={option}>
                 {option}
               </option>
@@ -91,7 +170,14 @@ export function EditProductPanel(props: EditProductPanelProps) {
           <input
             type="checkbox"
             checked={form.isActive}
-            onChange={(e) => onFormChange({ ...form, isActive: e.target.checked })}
+            onChange={(e) => {
+              const isActive = e.target.checked
+              onFormChange({
+                ...form,
+                isActive,
+                lifecycleStatus: isActive ? 'ACTIVE' : 'DISCONTINUED',
+              })
+            }}
           />
           Active
         </label>

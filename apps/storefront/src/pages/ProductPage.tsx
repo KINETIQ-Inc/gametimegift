@@ -28,7 +28,7 @@ import { lazy, Suspense, useState, useEffect } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { AlertBanner, Button, Heading } from '@gtg/ui'
 import { formatUsdCents } from '@gtg/utils'
-import { type ProductListItem } from '@gtg/api'
+import { APPAREL_SIZE_ORDER, listProducts, type ProductListItem } from '@gtg/api'
 import { trackStorefrontEvent } from '../analytics'
 import { useStorefront } from '../contexts/useStorefront'
 import { SiteNav } from '../components/nav/SiteNav'
@@ -59,7 +59,9 @@ type PurchaseBundle = 'vase' | 'flowers' | 'humidor'
 type FlowerOption = 'roses' | 'roses-carnations'
 
 interface CheckoutOptions {
-  bundle: PurchaseBundle
+  // Optional — apparel has no vase/flower bundle, so its "Buy Now" checks out
+  // directly with no bundle at all.
+  bundle?: PurchaseBundle
   flowerOption?: FlowerOption
 }
 
@@ -275,6 +277,8 @@ function InlineGiftForm({
 
 function ProductDetail({
   product,
+  variants,
+  onSelectVariant,
   onCheckout,
   onAddToCart,
   onViewCart,
@@ -285,6 +289,10 @@ function ProductDetail({
   productInCart,
 }: {
   product: ProductListItem
+  /** Sibling apparel rows sharing this product's style_key (size/color
+   * variants). Empty for collectibles or apparel with no siblings loaded. */
+  variants: ProductListItem[]
+  onSelectVariant: (variant: ProductListItem) => void
   onCheckout: (options: CheckoutOptions) => void
   onAddToCart: (quantity: number) => void
   onViewCart: () => void
@@ -301,6 +309,36 @@ function ProductDetail({
   const [bundlePanelOpen, setBundlePanelOpen] = useState(false)
   const [bundle, setBundle] = useState<PurchaseBundle>('vase')
   const [flowerOption, setFlowerOption] = useState<FlowerOption>('roses')
+
+  // ── Apparel size/color picker ──
+  // Each size/color combination is its own product row sharing a style_key
+  // (docs/adr/0002-apparel-variant-model-and-phasing.md) — picking a variant
+  // navigates to that sibling product rather than mutating this one.
+  const isApparel = product.category === 'APPAREL'
+  const availableSizes = isApparel
+    ? APPAREL_SIZE_ORDER.filter((size) => variants.some((v) => v.size === size))
+    : []
+  const availableColors = isApparel
+    ? Array.from(new Set(variants.map((v) => v.color).filter((c): c is string => Boolean(c))))
+    : []
+
+  // Exact (size, color) match only — no substitution. If a shopper has
+  // Color=Red selected and clicks a Size that only exists in Blue, that
+  // combination doesn't exist as a product; the button is disabled for that
+  // exact reason (see isVariantAvailable below) rather than silently
+  // switching them to the Blue version of that size.
+  function findVariant(size: string, color: string | null): ProductListItem | undefined {
+    return variants.find((v) => v.size === size && v.color === color)
+  }
+
+  function isVariantAvailable(size: string, color: string | null): boolean {
+    return findVariant(size, color) !== undefined
+  }
+
+  function selectVariant(nextSize: string, nextColor: string | null): void {
+    const match = findVariant(nextSize, nextColor)
+    if (match) onSelectVariant(match)
+  }
   const bundleOptions: Array<{
     id: PurchaseBundle
     title: string
@@ -328,6 +366,12 @@ function ProductDetail({
   ]
 
   const handleBuyNow = () => {
+    // Apparel has no vase/flower bundle to choose — check out directly.
+    if (isApparel) {
+      onCheckout({})
+      return
+    }
+
     if (!bundlePanelOpen) {
       setBundlePanelOpen(true)
       requestAnimationFrame(() => scrollToId('purchase-options'))
@@ -386,9 +430,64 @@ function ProductDetail({
                 <div>
                   <span className="meta-label">Price</span>
                   <strong>{formatUsdCents(product.retail_price_cents)}</strong>
-                  <span className="product-detail-meta-note">Per collectible</span>
+                  <span className="product-detail-meta-note">
+                    {isApparel ? 'Per item' : 'Per collectible'}
+                  </span>
                 </div>
               </div>
+
+              {isApparel && (availableSizes.length > 1 || availableColors.length > 1) ? (
+                <div className="product-detail-variant-picker" aria-label="Choose size and color">
+                  {availableSizes.length > 1 ? (
+                    <div className="variant-picker-group">
+                      <span className="variant-picker-label">Size</span>
+                      <div className="variant-picker-options" role="group" aria-label="Select size">
+                        {availableSizes.map((size) => {
+                          const available = size === product.size || isVariantAvailable(size, product.color)
+                          return (
+                            <button
+                              key={size}
+                              type="button"
+                              className={`variant-picker-option ${product.size === size ? 'variant-picker-option--active' : ''}`}
+                              aria-pressed={product.size === size}
+                              disabled={!available}
+                              aria-disabled={!available}
+                              title={available ? undefined : `Size ${size} is not available in ${product.color ?? 'this color'}`}
+                              onClick={() => selectVariant(size, product.color)}
+                            >
+                              {size}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+                  {availableColors.length > 1 ? (
+                    <div className="variant-picker-group">
+                      <span className="variant-picker-label">Color</span>
+                      <div className="variant-picker-options" role="group" aria-label="Select color">
+                        {availableColors.map((color) => {
+                          const available = color === product.color || isVariantAvailable(product.size ?? '', color)
+                          return (
+                            <button
+                              key={color}
+                              type="button"
+                              className={`variant-picker-option ${product.color === color ? 'variant-picker-option--active' : ''}`}
+                              aria-pressed={product.color === color}
+                              disabled={!available}
+                              aria-disabled={!available}
+                              title={available ? undefined : `${color} is not available in size ${product.size ?? 'this size'}`}
+                              onClick={() => selectVariant(product.size ?? availableSizes[0] ?? '', color)}
+                            >
+                              {color}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
 
               <div className="product-detail-cta-card">
                 <div className="product-detail-cta-copy">
@@ -407,6 +506,7 @@ function ProductDetail({
 
                 {product.in_stock ? (
                   <div className="product-detail-actions">
+                    {isApparel ? null : (
                     <div
                       id="purchase-options"
                       className={`product-detail-bundle ${bundlePanelOpen ? 'product-detail-bundle--open' : ''}`}
@@ -495,10 +595,11 @@ function ProductDetail({
                         </div>
                       ) : null}
                     </div>
+                    )}
 
                     <div className="product-detail-action-grid">
                       <Button variant="gold" size="lg" onClick={handleBuyNow} disabled={!checkoutEnabled}>
-                        {bundlePanelOpen ? 'Continue to Checkout' : 'Buy Now'}
+                        {!isApparel && bundlePanelOpen ? 'Continue to Checkout' : 'Buy Now'}
                       </Button>
                       <Button
                         variant="primary"
@@ -521,7 +622,7 @@ function ProductDetail({
                                 : 'Vase + Cigar Humidor'
                           }.`
                         : productInCart
-                          ? 'This collectible is already in your cart. Review it or keep browsing.'
+                          ? `This ${isApparel ? 'item' : 'collectible'} is already in your cart. Review it or keep browsing.`
                         : cartCount > 0
                           ? `${cartCount} item${cartCount === 1 ? '' : 's'} waiting in your cart`
                           : 'Buy now for immediate checkout, or add to cart and keep browsing.'}
@@ -610,6 +711,39 @@ export function ProductPage() {
   const product = products.find((p) => p.sku === sku) ?? null
   const productInCart = product ? cart.some((entry) => entry.sku === product.sku) : false
 
+  // Sibling apparel rows sharing this product's style_key — the whole
+  // size/color family (docs/adr/0002-apparel-variant-model-and-phasing.md).
+  // Fetched directly by style_key rather than filtered from whatever page of
+  // `products` happens to already be loaded — the storefront's default list
+  // call is paginated/limited, so a sibling could easily be outside that
+  // window even though it exists in the catalog.
+  const [variants, setVariants] = useState<ProductListItem[]>([])
+
+  useEffect(() => {
+    if (!product || product.category !== 'APPAREL' || !product.style_key) {
+      setVariants([])
+      return
+    }
+
+    let cancelled = false
+    const styleKey = product.style_key
+
+    listProducts({ style_key: styleKey })
+      .then((result) => {
+        if (!cancelled) setVariants(result.products)
+      })
+      .catch(() => {
+        // Sibling fetch is an enhancement (size/color picker), not the core
+        // page load — fall back to whatever's already in the loaded catalog
+        // rather than breaking the product page over it.
+        if (!cancelled) {
+          setVariants(products.filter((p) => p.style_key === styleKey))
+        }
+      })
+
+    return () => { cancelled = true }
+  }, [product, products])
+
   // Track page view
   useEffect(() => {
     if (product) {
@@ -650,6 +784,8 @@ export function ProductPage() {
         ) : product ? (
           <ProductDetail
             product={product}
+            variants={variants}
+            onSelectVariant={(variant) => navigate(getProductPath(variant))}
             cartCount={cartCount}
             cartMessage={cartMessage}
             checkoutEnabled={checkoutEnabled}

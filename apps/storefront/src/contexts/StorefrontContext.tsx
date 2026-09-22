@@ -56,7 +56,7 @@ export interface CartEntry {
 
 // ── Filter types ────────────────────────────────────────────
 
-export type { LicenseFilter, SportFilter } from '../product-routing'
+export type { LicenseFilter, SportFilter, CategoryFilter } from '../product-routing'
 
 // ── Storage ─────────────────────────────────────────────────
 
@@ -109,8 +109,10 @@ export interface StorefrontContextValue {
   // Catalog filters
   licenseFilter: string
   sportFilter: string
+  categoryFilter: string
   setLicenseFilter: (f: string) => void
   setSportFilter: (f: string) => void
+  setCategoryFilter: (f: string) => void
 
   // Cart
   cart: CartEntry[]
@@ -150,6 +152,7 @@ export function StorefrontProvider({ children }: { children: ReactNode }) {
   // ── Filters ──
   const [licenseFilter, setLicenseFilter] = useState<string>('ALL')
   const [sportFilter, setSportFilter] = useState<string>('ALL')
+  const [categoryFilter, setCategoryFilter] = useState<string>('ALL')
 
   // ── Cart ──
   const [cart, setCart] = useState<CartEntry[]>(() => loadStoredCart())
@@ -291,8 +294,10 @@ export function StorefrontProvider({ children }: { children: ReactNode }) {
     checkoutEnabled: true,
     licenseFilter,
     sportFilter,
+    categoryFilter,
     setLicenseFilter,
     setSportFilter,
+    setCategoryFilter,
     cart,
     cartCount,
     cartMessage,

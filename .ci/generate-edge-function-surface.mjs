@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process'
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
-import { resolve, basename } from 'node:path'
+import { readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs'
+import { resolve, basename, join } from 'node:path'
 
 const root = process.cwd()
 
@@ -13,14 +13,54 @@ function listFunctions() {
   return output.split('\n').map((line) => line.trim()).filter(Boolean)
 }
 
+// Pure Node directory walk in place of shelling out to `rg` — GitHub-hosted
+// runners don't consistently have ripgrep available, and this script must
+// behave identically in local development and CI without depending on any
+// external binary (see .ci/validate-config-contract.mjs for the same fix).
+const SKIP_DIRS = new Set([
+  'node_modules', '.git', 'dist', 'build', 'coverage', '.turbo', '.next', '.vercel',
+])
+
+function findFiles(rootDir, matches) {
+  const results = []
+
+  function walk(dir) {
+    let entries
+    try {
+      entries = readdirSync(dir, { withFileTypes: true })
+    } catch {
+      return
+    }
+
+    for (const entry of entries) {
+      const fullPath = join(dir, entry.name)
+
+      if (entry.isDirectory()) {
+        if (SKIP_DIRS.has(entry.name) || entry.name.startsWith('.')) continue
+        walk(fullPath)
+      } else if (entry.isFile() && matches(entry.name)) {
+        results.push(fullPath)
+      }
+    }
+  }
+
+  walk(resolve(root, rootDir))
+  return results
+}
+
+function toRepoRelative(absPath) {
+  return absPath.slice(resolve(root).length + 1)
+}
+
 function parseWrapperInvocations() {
-  const output = sh("rg -n \"functions\\.invoke<|functions\\.invoke\\(\" packages/api/src -S")
+  const files = findFiles('packages/api/src', (name) => name.endsWith('.ts') || name.endsWith('.tsx'))
   const rows = new Map()
 
-  for (const line of output.split('\n')) {
-    const [file] = line.split(':')
-    const source = readFileSync(resolve(root, file), 'utf8')
+  for (const absPath of files) {
+    const source = readFileSync(absPath, 'utf8')
+    if (!source.includes('functions.invoke')) continue
 
+    const file = toRepoRelative(absPath)
     for (const match of source.matchAll(/functions\.invoke(?:<[\s\S]*?>)?\(\s*['"]([a-z0-9-]+)['"]/g)) {
       const fn = match[1]
       if (!rows.has(fn)) rows.set(fn, new Set())
@@ -32,16 +72,12 @@ function parseWrapperInvocations() {
 }
 
 function parseInternalCallers() {
-  const files = sh("rg --files supabase/functions -g 'index.ts'")
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-
+  const files = findFiles('supabase/functions', (name) => name === 'index.ts')
   const callers = new Map()
 
-  for (const file of files) {
-    const fn = basename(resolve(file, '..'))
-    const src = readFileSync(resolve(root, file), 'utf8')
+  for (const absPath of files) {
+    const fn = basename(resolve(absPath, '..'))
+    const src = readFileSync(absPath, 'utf8')
     for (const match of src.matchAll(/functions\/v1\/([a-z0-9-]+)/g)) {
       const called = match[1]
       if (called === fn) continue

@@ -47,13 +47,9 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-const ATTRIBUTION_STORAGE_KEY = 'gtg-referral-attribution-v1'
+import { isReferralCode } from '@gtg/api'
 
-/**
- * Canonical referral code format: 1–20 characters, A–Z / 0–9 / hyphens.
- * GTG-XXXXX is the standard pattern but any conforming string is accepted.
- */
-const CODE_FORMAT = /^[A-Z0-9][A-Z0-9-]{0,19}$/
+const ATTRIBUTION_STORAGE_KEY = 'gtg-referral-attribution-v1'
 
 // ─── Stored Attribution Contract ──────────────────────────────────────────────
 
@@ -71,7 +67,7 @@ export interface ReferralAttribution {
  * Does NOT validate whether the consultant exists — that requires an API call.
  */
 export function isValidReferralCodeFormat(code: string): boolean {
-  return CODE_FORMAT.test(code)
+  return isReferralCode(code)
 }
 
 // ─── Capture ─────────────────────────────────────────────────────────────────

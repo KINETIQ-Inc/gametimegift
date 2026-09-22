@@ -33,6 +33,7 @@ import {
   getProductPath,
   getSportFromProduct,
   shortenProductName,
+  type CategoryFilter,
   type LicenseFilter,
   type SportFilter,
 } from '../product-routing'
@@ -64,6 +65,12 @@ const LICENSE_TABS = [
   { value: 'ALL', label: 'All Collections' },
   { value: 'CLC', label: 'NCAA' },
   { value: 'ARMY', label: 'Military' },
+] as const
+
+const CATEGORY_TABS = [
+  { value: 'ALL', label: 'Everything' },
+  { value: 'COLLECTIBLE', label: 'Collectibles' },
+  { value: 'APPAREL', label: 'Apparel' },
 ] as const
 
 const GIFTING_PROMISES = [
@@ -125,6 +132,28 @@ function matchesSearchQuery(product: ProductListItem, query: string): boolean {
   return haystack.includes(normalizedQuery)
 }
 
+// Apparel size/color variants are sibling product rows sharing a style_key
+// (docs/adr/0002-apparel-variant-model-and-phasing.md) — without this, every
+// size/color combination of one design would show as its own catalog card.
+// Collectibles have no style_key (always null) and are left one-per-row,
+// same as before.
+function dedupeByStyleKey(products: ProductListItem[]): ProductListItem[] {
+  const seenStyleKeys = new Set<string>()
+  const result: ProductListItem[] = []
+
+  for (const product of products) {
+    if (product.style_key === null) {
+      result.push(product)
+      continue
+    }
+    if (seenStyleKeys.has(product.style_key)) continue
+    seenStyleKeys.add(product.style_key)
+    result.push(product)
+  }
+
+  return result
+}
+
 function matchesConference(product: ProductListItem, conference: string): boolean {
   if (!conference.trim()) return true
 
@@ -184,8 +213,10 @@ export function ShopPage() {
     error,
     licenseFilter,
     sportFilter,
+    categoryFilter,
     setLicenseFilter,
     setSportFilter,
+    setCategoryFilter,
   } = useStorefront()
   const gridRef = useRef<HTMLElement | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
@@ -197,12 +228,14 @@ export function ShopPage() {
     const params = new URLSearchParams(location.search)
     const sport = params.get('sport')?.toUpperCase()
     const license = params.get('license')?.toUpperCase()
+    const category = params.get('category')?.toUpperCase()
     const search = params.get('search')?.trim() ?? ''
     const school = params.get('school')?.trim() ?? ''
     const conference = params.get('conference')?.trim() ?? ''
 
     const validSports: string[] = ['FOOTBALL', 'BASKETBALL', 'SOCCER', 'BASEBALL', 'HOCKEY']
     const validLicenses: string[] = ['CLC', 'ARMY']
+    const validCategories: string[] = ['COLLECTIBLE', 'APPAREL']
 
     if (sport && validSports.includes(sport)) {
       setSportFilter(sport)
@@ -210,15 +243,19 @@ export function ShopPage() {
     if (license && validLicenses.includes(license)) {
       setLicenseFilter(license)
     }
+    if (category && validCategories.includes(category)) {
+      setCategoryFilter(category)
+    }
     setSearchTerm(search)
     setSchoolTerm(school)
     setConferenceFilter(conference)
-  }, [location.search, setSportFilter, setLicenseFilter])
+  }, [location.search, setSportFilter, setLicenseFilter, setCategoryFilter])
 
   const filteredProducts = filterProducts(
     products,
     licenseFilter as LicenseFilter,
     sportFilter as SportFilter,
+    categoryFilter as CategoryFilter,
   )
     .filter((product) => matchesSearchQuery(product, searchTerm))
     .filter((product) => {
@@ -230,6 +267,7 @@ export function ShopPage() {
     products,
     licenseFilter as LicenseFilter,
     'ALL',
+    categoryFilter as CategoryFilter,
   )
     .filter((product) => matchesSearchQuery(product, searchTerm))
     .filter((product) => {
@@ -243,16 +281,19 @@ export function ShopPage() {
     filteredProducts.length === 0 &&
     sportAgnosticFilteredProducts.length > 0
 
-  const visibleProducts = usingBasketballCatalogFallback
-    ? sportAgnosticFilteredProducts
-    : filteredProducts
+  const visibleProducts = dedupeByStyleKey(
+    usingBasketballCatalogFallback ? sportAgnosticFilteredProducts : filteredProducts,
+  )
 
   const deferredProducts = useDeferredValue(visibleProducts)
   const activeSportLabel = SPORT_TABS.find((tab) => tab.value === sportFilter)?.label ?? 'All Sports'
   const activeLicenseLabel = LICENSE_TABS.find((tab) => tab.value === licenseFilter)?.label ?? 'All Collections'
+  const activeCategoryLabel = CATEGORY_TABS.find((tab) => tab.value === categoryFilter)?.label ?? 'Everything'
+  const isApparelCategory = categoryFilter === 'APPAREL'
   const hasActiveFilters =
     sportFilter !== 'ALL' ||
     licenseFilter !== 'ALL' ||
+    categoryFilter !== 'ALL' ||
     searchTerm.trim().length > 0 ||
     schoolTerm.trim().length > 0 ||
     conferenceFilter.trim().length > 0
@@ -263,6 +304,7 @@ export function ShopPage() {
     nextSearchTerm = searchTerm,
     nextSchoolTerm = schoolTerm,
     nextConferenceFilter = conferenceFilter,
+    nextCategory = categoryFilter,
   ): void {
     const params = new URLSearchParams()
     if (nextSport !== 'ALL') {
@@ -270,6 +312,9 @@ export function ShopPage() {
     }
     if (nextLicense !== 'ALL') {
       params.set('license', nextLicense)
+    }
+    if (nextCategory !== 'ALL') {
+      params.set('category', nextCategory)
     }
     if (nextSearchTerm.trim()) {
       params.set('search', nextSearchTerm.trim())
@@ -299,26 +344,48 @@ export function ShopPage() {
     startTransition(() => {
       setSportFilter(sport)
     })
-    syncShopQuery(sport, licenseFilter, searchTerm, schoolTerm, conferenceFilter)
+    syncShopQuery(sport, licenseFilter, searchTerm, schoolTerm, conferenceFilter, categoryFilter)
     scrollToInventoryWall()
-    trackStorefrontEvent('catalog_filter_changed', { sportFilter: sport, licenseFilter })
+    trackStorefrontEvent('catalog_filter_changed', { sportFilter: sport, licenseFilter, categoryFilter })
   }
 
   function handleLicenseSelect(license: string) {
     startTransition(() => {
       setLicenseFilter(license)
     })
-    syncShopQuery(sportFilter, license, searchTerm, schoolTerm, conferenceFilter)
+    syncShopQuery(sportFilter, license, searchTerm, schoolTerm, conferenceFilter, categoryFilter)
     scrollToInventoryWall()
-    trackStorefrontEvent('catalog_filter_changed', { sportFilter, licenseFilter: license })
+    trackStorefrontEvent('catalog_filter_changed', { sportFilter, licenseFilter: license, categoryFilter })
+  }
+
+  function handleCategorySelect(category: string) {
+    startTransition(() => {
+      setCategoryFilter(category)
+      // Apparel has no "sport" dimension — clear a stale sport filter so
+      // switching to Apparel doesn't silently zero out the grid.
+      if (category === 'APPAREL' && sportFilter !== 'ALL') {
+        setSportFilter('ALL')
+      }
+    })
+    syncShopQuery(
+      category === 'APPAREL' ? 'ALL' : sportFilter,
+      licenseFilter,
+      searchTerm,
+      schoolTerm,
+      conferenceFilter,
+      category,
+    )
+    scrollToInventoryWall()
+    trackStorefrontEvent('catalog_filter_changed', { sportFilter, licenseFilter, categoryFilter: category })
   }
 
   function applySearchFilters(): void {
-    syncShopQuery(sportFilter, licenseFilter, searchTerm, schoolTerm, conferenceFilter)
+    syncShopQuery(sportFilter, licenseFilter, searchTerm, schoolTerm, conferenceFilter, categoryFilter)
     scrollToInventoryWall()
     trackStorefrontEvent('catalog_filter_changed', {
       sportFilter,
       licenseFilter,
+      categoryFilter,
       searchTerm: searchTerm.trim() || null,
       schoolTerm: schoolTerm.trim() || null,
       conferenceFilter: conferenceFilter.trim() || null,
@@ -422,24 +489,45 @@ export function ShopPage() {
               </Button>
             </form>
 
-            {/* Sport tabs */}
+            {/* Category tabs */}
             <div
-              className="shop-filter-group"
+              className="shop-filter-group shop-filter-group--category"
               role="group"
-              aria-label="Filter by sport"
+              aria-label="Filter by category"
             >
-              {SPORT_TABS.map(({ value, label }) => (
+              {CATEGORY_TABS.map(({ value, label }) => (
                 <button
                   key={value}
                   type="button"
-                  className={`shop-filter-tab ${sportFilter === value ? 'shop-filter-tab--active' : ''}`}
-                  onClick={() => handleSportSelect(value)}
-                  aria-pressed={sportFilter === value}
+                  className={`shop-filter-tab ${categoryFilter === value ? 'shop-filter-tab--active' : ''}`}
+                  onClick={() => handleCategorySelect(value)}
+                  aria-pressed={categoryFilter === value}
                 >
                   {label}
                 </button>
               ))}
             </div>
+
+            {/* Sport tabs — apparel has no sport dimension */}
+            {isApparelCategory ? null : (
+              <div
+                className="shop-filter-group"
+                role="group"
+                aria-label="Filter by sport"
+              >
+                {SPORT_TABS.map(({ value, label }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={`shop-filter-tab ${sportFilter === value ? 'shop-filter-tab--active' : ''}`}
+                    onClick={() => handleSportSelect(value)}
+                    aria-pressed={sportFilter === value}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* License toggle */}
             <div
@@ -462,7 +550,10 @@ export function ShopPage() {
 
             {hasActiveFilters ? (
               <div className="shop-filter-bar__active" aria-live="polite">
-                <span className="shop-filter-pill">Sport: {activeSportLabel}</span>
+                <span className="shop-filter-pill">Category: {activeCategoryLabel}</span>
+                {isApparelCategory ? null : (
+                  <span className="shop-filter-pill">Sport: {activeSportLabel}</span>
+                )}
                 <span className="shop-filter-pill">Collection: {activeLicenseLabel}</span>
                 {conferenceFilter ? (
                   <span className="shop-filter-pill">Conference: {conferenceFilter}</span>
@@ -474,11 +565,12 @@ export function ShopPage() {
                     startTransition(() => {
                       setSportFilter('ALL')
                       setLicenseFilter('ALL')
+                      setCategoryFilter('ALL')
                     })
                     setSearchTerm('')
                     setSchoolTerm('')
                     setConferenceFilter('')
-                    syncShopQuery('ALL', 'ALL', '', '', '')
+                    syncShopQuery('ALL', 'ALL', '', '', '', 'ALL')
                     scrollToInventoryWall()
                   }}
                 >
@@ -572,11 +664,12 @@ export function ShopPage() {
                   startTransition(() => {
                     setSportFilter('ALL')
                     setLicenseFilter('ALL')
+                    setCategoryFilter('ALL')
                   })
                   setSearchTerm('')
                   setSchoolTerm('')
                   setConferenceFilter('')
-                  syncShopQuery('ALL', 'ALL', '', '', '')
+                  syncShopQuery('ALL', 'ALL', '', '', '', 'ALL')
                   scrollToInventoryWall()
                 }}
               >

@@ -45,7 +45,7 @@ interface ProductRow {
   name: string
   license_body: string
   retail_price_cents: number
-  active: boolean
+  is_active: boolean
 }
 
 interface ConsultantRow {
@@ -206,9 +206,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     const { data: productData, error: productError } = await admin
       .from('products')
-      .select('id, sku, name, license_body:license_type, retail_price_cents:price, active')
+      .select('id, sku, name, license_body, retail_price_cents, is_active')
       .eq('id', body.product_id)
-      .eq('active', true)
+      .eq('is_active', true)
       .single()
 
     if (productError || !productData) {

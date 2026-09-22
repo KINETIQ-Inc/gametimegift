@@ -8,8 +8,14 @@
  * ─── Authorization ────────────────────────────────────────────────────────────
  *
  * Any authenticated user (consultant, admin). Active products are filtered
- * via explicit .eq('active', true) — the products table uses the `active`
- * column. The storefront never surfaces inactive products.
+ * via explicit .eq('is_active', true) — this matches the actual `products`
+ * table schema (supabase/migrations/20260305000001_create_products.sql). A
+ * prior version of this comment/query referenced a nonexistent `active`
+ * column (along with `license_type` and `price`, also nonexistent) — that
+ * mismatch meant this query 500'd on every real invocation, which is why the
+ * storefront's mock-data fallback was silently serving the catalog instead of
+ * real inventory. Fixed as part of the licensed-schools/apparel work — see
+ * the PR this shipped in for the full story.
  *
  * ─── License-based filtering ──────────────────────────────────────────────────
  *
@@ -96,7 +102,8 @@ import { createAdminClient, getUserFromRequest } from '../_shared/supabase.ts'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const VALID_LICENSE_BODIES = new Set(['CLC', 'ARMY', 'NONE'])
+const VALID_LICENSE_BODIES  = new Set(['CLC', 'ARMY', 'NONE'])
+const VALID_PRODUCT_CATEGORIES = new Set(['COLLECTIBLE', 'APPAREL'])
 const DEFAULT_LIMIT        = 50
 const MAX_LIMIT            = 200
 
@@ -106,6 +113,8 @@ interface RequestBody {
   license_body?: string | string[]
   search?:       string
   school?:       string
+  category?:     string
+  style_key?:    string
   limit?:        number
   offset?:       number
 }
@@ -114,10 +123,17 @@ interface ProductRow {
   id:                 string
   sku:                string
   name:               string
+  description:        string | null
   school:             string | null
   license_body:       string
+  category:           string
+  lifecycle_status:   string
+  size:               string | null
+  color:              string | null
+  style_key:          string | null
   retail_price_cents: number
   created_at:         string
+  updated_at:         string
 }
 
 interface CountRow {
@@ -200,6 +216,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
       return jsonError(req, 'school must be a non-empty string when provided.', 400)
     }
 
+    if (body.category !== undefined && !VALID_PRODUCT_CATEGORIES.has(body.category)) {
+      return jsonError(
+        req,
+        `category must be one of: ${[...VALID_PRODUCT_CATEGORIES].join(', ')}.`,
+        400,
+      )
+    }
+
+    if (body.style_key !== undefined &&
+        (typeof body.style_key !== 'string' || body.style_key.trim().length === 0)) {
+      return jsonError(req, 'style_key must be a non-empty string when provided.', 400)
+    }
+
     // ── Validate pagination ──
 
     const limit  = body.limit  ?? DEFAULT_LIMIT
@@ -219,15 +248,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     // ── Step 5: Build and execute product query ─────────────────────────────────
     //
-    // Explicit .eq('active', true) filter — the products table uses `active`
-    // (not `is_active`). RLS policies referencing is_active are broken against
-    // this schema; the explicit filter is the authoritative guard here.
-    // cost_cents and created_by are excluded — internal fields not for storefront.
+    // Explicit .eq('is_active', true) filter, matching the real products
+    // schema. cost_cents and created_by are excluded — internal fields not
+    // for storefront.
 
     authedLog.info('Querying products', {
       license_body: body.license_body,
       search:       body.search,
       school:       body.school,
+      category:     body.category,
       limit,
       offset,
     })
@@ -235,18 +264,18 @@ Deno.serve(async (req: Request): Promise<Response> => {
     let productQuery = createAdminClient()
       .from('products')
       .select(
-        'id, sku, name, school, license_body:license_type, retail_price_cents:price, created_at',
+        'id, sku, name, description, school, license_body, category, lifecycle_status, size, color, style_key, retail_price_cents, created_at, updated_at',
         { count: 'exact' },
       )
-      .eq('active', true)
+      .eq('is_active', true)
       .order('name', { ascending: true })
       .range(offset, offset + limit - 1)
 
     if (body.license_body !== undefined) {
       const bodies = toArray(body.license_body as string | string[])
       productQuery = bodies.length === 1
-        ? productQuery.eq('license_type', bodies[0])
-        : productQuery.in('license_type', bodies)
+        ? productQuery.eq('license_body', bodies[0])
+        : productQuery.in('license_body', bodies)
     }
 
     if (body.search !== undefined) {
@@ -255,6 +284,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     if (body.school !== undefined) {
       productQuery = productQuery.eq('school', body.school.trim())
+    }
+
+    if (body.category !== undefined) {
+      productQuery = productQuery.eq('category', body.category)
+    }
+
+    if (body.style_key !== undefined) {
+      productQuery = productQuery.eq('style_key', body.style_key.trim())
     }
 
     const { data: products, error: productError, count } = await productQuery
@@ -301,14 +338,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
         id:                 product.id,
         sku:                product.sku,
         name:               product.name,
-        description:        null,
+        description:        product.description,
         school:             product.school,
         license_body:       product.license_body,
+        category:           product.category,
+        lifecycle_status:   product.lifecycle_status,
+        size:               product.size,
+        color:              product.color,
+        style_key:          product.style_key,
         retail_price_cents: product.retail_price_cents,
         available_count:    availableCount,
         in_stock:           availableCount > 0,
         created_at:         product.created_at,
-        updated_at:         product.created_at,
+        updated_at:         product.updated_at,
       }
     })
 

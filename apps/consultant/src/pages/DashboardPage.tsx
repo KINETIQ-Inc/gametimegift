@@ -167,6 +167,11 @@ export function DashboardPage() {
                 </article>
               ))}
             </div>
+          ) : loading && !unitsResult ? (
+            <div className="detail-card-skeleton" role="status" aria-label="Loading recent orders">
+              <div className="skeleton-line wide" />
+              <div className="skeleton-line medium" />
+            </div>
           ) : (
             <EmptyState
               title="No orders yet this month"
@@ -198,6 +203,11 @@ export function DashboardPage() {
                   </div>
                 </article>
               ))}
+            </div>
+          ) : loading && !commissionResult ? (
+            <div className="detail-card-skeleton" role="status" aria-label="Loading recent commission entries">
+              <div className="skeleton-line wide" />
+              <div className="skeleton-line medium" />
             </div>
           ) : (
             <EmptyState

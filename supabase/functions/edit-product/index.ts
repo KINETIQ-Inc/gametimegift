@@ -105,11 +105,17 @@ import { handleCors } from '../_shared/cors.ts'
 import { createLogger } from '../_shared/logger.ts'
 import { jsonError, jsonResponse, unauthorized } from '../_shared/response.ts'
 import { createAdminClient, createUserClient } from '../_shared/supabase.ts'
+import { validateClcSchool } from '../_shared/licensed-schools.ts'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const UUID_RE           = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const VALID_LICENSE_BODIES = new Set(['CLC', 'ARMY', 'NONE'])
+const VALID_PRODUCT_CATEGORIES = new Set(['COLLECTIBLE', 'APPAREL'])
+const VALID_LIFECYCLE_STATUSES = new Set(['DRAFT', 'READY_FOR_REVIEW', 'ACTIVE', 'DISCONTINUED', 'ARCHIVED'])
+
+// PostgreSQL unique_violation error code
+const PG_UNIQUE_VIOLATION = '23505'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -121,6 +127,9 @@ interface RequestBody {
   description?:        string | null
   school?:             string | null
   license_body?:       string
+  category?:           string
+  color?:              string | null
+  lifecycle_status?:   string
   royalty_rate?:       number | null
   cost_cents?:         number
   retail_price_cents?: number
@@ -130,7 +139,11 @@ interface RequestBody {
 interface ExistingProduct {
   id:                 string
   sku:                string
+  school:             string | null
   license_body:       string
+  category:           string
+  size:               string | null
+  style_key:          string | null
   royalty_rate:       number | null
   cost_cents:         number
   retail_price_cents: number
@@ -144,6 +157,11 @@ interface Product {
   description:        string | null
   school:             string | null
   license_body:       string
+  category:           string
+  lifecycle_status:   string
+  size:               string | null
+  color:              string | null
+  style_key:          string | null
   royalty_rate:       number | null
   cost_cents:         number
   retail_price_cents: number
@@ -156,8 +174,9 @@ interface Product {
 // ─── Editable field keys (used to detect at least one editable field) ─────────
 
 const EDITABLE_FIELDS = new Set([
-  'name', 'description', 'school', 'license_body', 'royalty_rate',
-  'cost_cents', 'retail_price_cents', 'is_active',
+  'name', 'description', 'school', 'license_body', 'category', 'color',
+  'lifecycle_status', 'royalty_rate', 'cost_cents', 'retail_price_cents',
+  'is_active',
 ])
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
@@ -220,13 +239,34 @@ Deno.serve(async (req: Request): Promise<Response> => {
       )
     }
 
+    // style_key is immutable (ADR-0001) — same treatment as sku. size is tied
+    // to the physical units already received against this row and is not
+    // editable either; a size correction means creating a new product.
+    if ('style_key' in body) {
+      return jsonError(
+        req,
+        'style_key is immutable and cannot be changed after creation. ' +
+        'See docs/adr/0001-style-key-immutability.md.',
+        400,
+      )
+    }
+    if ('size' in body) {
+      return jsonError(
+        req,
+        'size cannot be changed after creation. Create a new product for a ' +
+        'different size.',
+        400,
+      )
+    }
+
     // At least one editable field must be present
     const hasEditableField = Object.keys(body).some((k) => EDITABLE_FIELDS.has(k))
     if (!hasEditableField) {
       return jsonError(
         req,
         'At least one editable field must be provided: ' +
-        'name, description, school, license_body, royalty_rate, cost_cents, retail_price_cents, is_active.',
+        'name, description, school, license_body, category, color, lifecycle_status, ' +
+        'royalty_rate, cost_cents, retail_price_cents, is_active.',
         400,
       )
     }
@@ -237,7 +277,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     const { data: existing, error: fetchError } = await admin
       .from('products')
-      .select('id, sku, license_body, royalty_rate, cost_cents, retail_price_cents, is_active')
+      .select('id, sku, school, license_body, category, size, style_key, royalty_rate, cost_cents, retail_price_cents, is_active')
       .eq('id', body.product_id)
       .single()
 
@@ -253,6 +293,44 @@ Deno.serve(async (req: Request): Promise<Response> => {
     // Resolve effective values (incoming if provided, existing otherwise)
     const effectiveLicenseBody = body.license_body ?? current.license_body
     const effectiveCostCents   = body.cost_cents   ?? current.cost_cents
+
+    // style_key encodes school + garment type at creation time (ADR-0001) and
+    // is itself immutable (rejected above). Changing `school` out from under
+    // an existing style_key — or flipping `category` in or out of APPAREL
+    // after the fact — would silently desync the two without ever touching
+    // the immutable field itself, so both are rejected explicitly here.
+    if (current.style_key !== null) {
+      if (
+        body.school !== undefined &&
+        body.school !== null &&
+        body.school.trim() !== current.school
+      ) {
+        return jsonError(
+          req,
+          `school cannot be changed for an apparel product once its style_key ` +
+          `('${current.style_key}') has been generated. style_key is derived from ` +
+          'school + garment type and is permanent — see docs/adr/0001-style-key-immutability.md. ' +
+          'Create a new product for the new school instead.',
+          400,
+        )
+      }
+      if (body.category !== undefined && body.category !== current.category) {
+        return jsonError(
+          req,
+          `category cannot be changed once a style_key ('${current.style_key}') has been ` +
+          'generated — apparel identity is permanent. See docs/adr/0001-style-key-immutability.md.',
+          400,
+        )
+      }
+    } else if (body.category === 'APPAREL' && current.category !== 'APPAREL') {
+      return jsonError(
+        req,
+        'category cannot be changed to APPAREL after creation — style_key can only be ' +
+        'generated at creation time from school + garment type. Create a new apparel ' +
+        'product instead. See docs/adr/0001-style-key-immutability.md.',
+        400,
+      )
+    }
 
     // name
     if (body.name !== undefined) {
@@ -272,6 +350,17 @@ Deno.serve(async (req: Request): Promise<Response> => {
       if (typeof body.school !== 'string' || body.school.trim().length === 0) {
         return jsonError(req, 'school must be a non-empty string or null.', 400)
       }
+    }
+
+    // Checking only the incoming `body.school` (when present) missed two
+    // bypasses: switching license_body to 'CLC' without touching school, and
+    // school already being null/unlicensed before this edit. Resolve the
+    // effective post-update school and run it through the same shared
+    // validator create-product and assign-product-license use.
+    const effectiveSchool = body.school !== undefined ? body.school : current.school
+    const clcSchoolError = validateClcSchool(effectiveLicenseBody, effectiveSchool)
+    if (clcSchoolError !== null) {
+      return jsonError(req, clcSchoolError, 400)
     }
 
     // license_body
@@ -335,6 +424,43 @@ Deno.serve(async (req: Request): Promise<Response> => {
       return jsonError(req, 'is_active must be a boolean.', 400)
     }
 
+    // category
+    if (body.category !== undefined && !VALID_PRODUCT_CATEGORIES.has(body.category)) {
+      return jsonError(req, `category must be one of: ${[...VALID_PRODUCT_CATEGORIES].join(', ')}.`, 400)
+    }
+
+    // color
+    if (body.color !== undefined && body.color !== null) {
+      if (typeof body.color !== 'string' || body.color.trim().length === 0) {
+        return jsonError(req, 'color must be a non-empty string or null.', 400)
+      }
+    }
+
+    // lifecycle_status
+    if (body.lifecycle_status !== undefined && !VALID_LIFECYCLE_STATUSES.has(body.lifecycle_status)) {
+      return jsonError(
+        req,
+        `lifecycle_status must be one of: ${[...VALID_LIFECYCLE_STATUSES].join(', ')}.`,
+        400,
+      )
+    }
+
+    // lifecycle_status is the descriptive form of the operative is_active
+    // flag. Accept either field on its own by deriving its counterpart, but
+    // reject contradictory pairs rather than allowing impossible states such
+    // as ARCHIVED + is_active=true. The database enforces the same invariant.
+    if (
+      body.lifecycle_status !== undefined &&
+      body.is_active !== undefined &&
+      (body.lifecycle_status === 'ACTIVE') !== body.is_active
+    ) {
+      return jsonError(
+        req,
+        "lifecycle_status and is_active disagree: ACTIVE requires is_active=true; all other lifecycle states require is_active=false.",
+        400,
+      )
+    }
+
     // ── Step 8: Build update payload ────────────────────────────────────────────
 
     // deno-lint-ignore no-explicit-any
@@ -344,9 +470,20 @@ Deno.serve(async (req: Request): Promise<Response> => {
     if (body.description !== undefined) patch.description = body.description?.trim() ?? null
     if (body.school      !== undefined) patch.school      = body.school?.trim() ?? null
     if (body.license_body !== undefined) patch.license_body = body.license_body
+    if (body.category    !== undefined) patch.category    = body.category
+    if (body.color       !== undefined) patch.color       = body.color?.trim() ?? null
+    if (body.lifecycle_status !== undefined) {
+      patch.lifecycle_status = body.lifecycle_status
+      patch.is_active = body.lifecycle_status === 'ACTIVE'
+    }
     if (body.cost_cents  !== undefined) patch.cost_cents  = body.cost_cents
     if (body.retail_price_cents !== undefined) patch.retail_price_cents = body.retail_price_cents
-    if (body.is_active   !== undefined) patch.is_active   = body.is_active
+    if (body.is_active !== undefined) {
+      patch.is_active = body.is_active
+      if (body.lifecycle_status === undefined) {
+        patch.lifecycle_status = body.is_active ? 'ACTIVE' : 'DISCONTINUED'
+      }
+    }
 
     // royalty_rate requires special handling:
     //   a) Explicitly provided (number or null) → use directly
@@ -373,6 +510,30 @@ Deno.serve(async (req: Request): Promise<Response> => {
       .single()
 
     if (updateError !== null) {
+      // color is the only apparel field this endpoint can still change once a
+      // style_key exists — editing it into a value another sibling (same
+      // style_key + size) already has hits the same unique constraint
+      // create-product's insert enforces. Give the same clear 409 here too,
+      // rather than falling through to a generic 500.
+      if (
+        updateError.code === PG_UNIQUE_VIOLATION &&
+        updateError.message.includes('products_apparel_variant_unique')
+      ) {
+        authedLog.warn('Duplicate apparel variant', {
+          style_key: current.style_key,
+          size:      current.size,
+          color:     patch.color ?? null,
+        })
+        return jsonError(
+          req,
+          `A product already exists for this exact size/color combination ` +
+          `(style_key '${current.style_key}', size '${current.size}'` +
+          `${patch.color ? `, color '${patch.color}'` : ''}). ` +
+          'Each size/color combination may only be represented by one product.',
+          409,
+        )
+      }
+
       const gtgMatch = updateError.message.match(/\[GTG\][^.]+\./)
       authedLog.error('Product update failed', { error: updateError.message })
       return jsonError(req, gtgMatch ? gtgMatch[0] : 'Internal server error', 500)
