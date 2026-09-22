@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import App from '../App'
 import {
@@ -14,6 +15,21 @@ import {
   EMPTY_UNLOCK_UNIT_FORM,
   EMPTY_UPLOAD_FORM,
 } from '../features/product/types'
+
+// AuthProvider (wraps the whole App, outside AdminShell) calls getAuthSession()
+// on mount, which needs a real configureSupabase() call production only makes
+// in main.tsx. Mocked here for the same reason use-admin-dashboard is mocked
+// below — this test isolates the admin shell's rendering, not real auth.
+vi.mock('@gtg/api', async () => {
+  const actual = await vi.importActual<typeof import('@gtg/api')>('@gtg/api')
+  return {
+    ...actual,
+    getAuthSession: vi.fn().mockResolvedValue(
+      { role: 'admin', userId: 'test-admin', email: 'admin@test.gtg' },
+    ),
+    subscribeToAuthChanges: vi.fn(() => () => {}),
+  }
+})
 
 vi.mock('../hooks/use-admin-dashboard', () => ({
   useAdminDashboard: () => ({
@@ -79,10 +95,19 @@ vi.mock('../hooks/use-admin-dashboard', () => ({
 }))
 
 describe('App', () => {
-  it('mounts the fraud control and reporting panels in the admin shell', () => {
-    render(<App />)
+  it('mounts the fraud control and reporting panels in the admin shell', async () => {
+    // Production renders <App /> inside <BrowserRouter> (see main.tsx) —
+    // App itself has no Router of its own, so the test must supply one too.
+    // /fraud is the protected route that renders the panels this test checks for.
+    render(
+      <MemoryRouter initialEntries={['/fraud']}>
+        <App />
+      </MemoryRouter>,
+    )
 
-    expect(screen.getByRole('heading', { name: 'Lock and unlock serialized units.' })).toBeTruthy()
+    // AdminShell shows a "Checking session…" loading state until the mocked
+    // getAuthSession() promise resolves — wait for the real content past it.
+    expect(await screen.findByRole('heading', { name: 'Lock and unlock serialized units.' })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Review flagged units.' })).toBeTruthy()
   })
 })

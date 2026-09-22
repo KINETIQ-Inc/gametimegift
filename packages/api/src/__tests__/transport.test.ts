@@ -33,6 +33,12 @@ beforeEach(() => {
     functions: {
       invoke: invokeMock,
     },
+    // invokeFunction() resolves an auth header via getSession() before every
+    // call (see transport.ts's resolveAuthHeader()) — the mock client must
+    // provide this or every wrapped call throws before reaching `invoke`.
+    auth: {
+      getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
+    },
   } as unknown as ReturnType<typeof getSupabaseClient>)
 })
 

@@ -20,6 +20,12 @@ beforeEach(() => {
     functions: {
       invoke: invokeMock,
     },
+    // invokeFunction() resolves an auth header via getSession() before every
+    // call (see transport.ts's resolveAuthHeader()) — the mock client must
+    // provide this or every wrapped call throws before reaching `invoke`.
+    auth: {
+      getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
+    },
   } as unknown as ReturnType<typeof getSupabaseClient>)
 })
 
@@ -42,9 +48,9 @@ describe('ledger pipeline contract', () => {
 
     await submitOrder({ orderId: UUID })
 
-    expect(invokeMock).toHaveBeenCalledWith('process-order-ledger', {
+    expect(invokeMock).toHaveBeenCalledWith('process-order-ledger', expect.objectContaining({
       body: { order_id: UUID },
-    })
+    }))
   })
 
   it('processOrderLedger delegates to process-order-ledger with order_id payload', async () => {
@@ -65,9 +71,9 @@ describe('ledger pipeline contract', () => {
 
     await processOrderLedger({ orderId: UUID })
 
-    expect(invokeMock).toHaveBeenCalledWith('process-order-ledger', {
+    expect(invokeMock).toHaveBeenCalledWith('process-order-ledger', expect.objectContaining({
       body: { order_id: UUID },
-    })
+    }))
   })
 
   it('process-order-ledger function enforces admin authorization', () => {

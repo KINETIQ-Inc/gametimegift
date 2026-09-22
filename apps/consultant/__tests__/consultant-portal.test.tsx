@@ -2,8 +2,19 @@
 
 import React from 'react'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../src/App'
+
+function renderApp(initialRoute = '/dashboard') {
+  // Production renders <App /> inside <BrowserRouter> (see main.tsx) — App
+  // itself has no Router of its own, so the test must supply one too.
+  return render(
+    <MemoryRouter initialEntries={[initialRoute]}>
+      <App />
+    </MemoryRouter>,
+  )
+}
 
 const {
   mockGetReferralLink,
@@ -26,6 +37,13 @@ vi.mock('@gtg/api', async () => {
     getConsultantUnitsSold: mockGetConsultantUnitsSold,
     getConsultantCommissionEarned: mockGetConsultantCommissionEarned,
     getConsultantPendingPayouts: mockGetConsultantPendingPayouts,
+    // AuthProvider (wraps the whole App) calls getAuthSession() on mount,
+    // which needs a real configureSupabase() call production only makes in
+    // main.tsx. Mocked here for the same reason the dashboard calls above are.
+    getAuthSession: vi.fn().mockResolvedValue(
+      { role: 'consultant', userId: 'consultant-1', email: 'consultant@test.gtg' },
+    ),
+    subscribeToAuthChanges: vi.fn(() => () => {}),
   }
 })
 
@@ -140,23 +158,32 @@ describe('consultant portal revenue engine', () => {
     cleanup()
   })
 
-  it('loads the dashboard and generates a consultant referral link', async () => {
-    render(<App />)
+  it('loads the dashboard with revenue overview and recent activity', async () => {
+    renderApp('/dashboard')
 
-    expect(await screen.findByText('6 units across 4 orders')).toBeInTheDocument()
-    expect(screen.getByText('Jordan Coach')).toBeInTheDocument()
+    // "Welcome back, Jordan Coach." is one text node — match the substring.
+    expect(await screen.findByText(/Welcome back, Jordan Coach\./)).toBeInTheDocument()
+    expect(screen.getByText('Gross sales this month')).toBeInTheDocument()
+    expect(screen.getByText('$894.00')).toBeInTheDocument() // gross_sales_cents: 89400
     expect(screen.getAllByText(/GTG-20260331-000001/).length).toBeGreaterThan(0)
+  })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Get My Link' }))
+  it('generates a consultant referral link on the referral tools page', async () => {
+    renderApp('/referrals')
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Get My Link' }))
 
     expect(await screen.findByText('https://gametimegift.com/?ref=COACH99')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Copy Text / SMS' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Copy Link' })).toBeInTheDocument()
   })
 
   it('updates the commission calculator with shared projection math', async () => {
-    render(<App />)
+    renderApp('/earnings')
 
-    await screen.findByText('6 units across 4 orders')
+    // Wait for the initial load to finish — the calculator's suggested
+    // commission rate is derived from fetched data via a useEffect, so
+    // interacting before that resolves would race it.
+    await screen.findByText('Dashboard synced')
 
     fireEvent.change(screen.getByLabelText('Retail price'), { target: { value: '199' } })
     fireEvent.change(screen.getByLabelText('Commission rate %'), { target: { value: '12' } })
@@ -166,21 +193,27 @@ describe('consultant portal revenue engine', () => {
     expect(screen.getByText('$119.40')).toBeInTheDocument()
   })
 
-  it('shows a loading skeleton while the dashboard is fetching for the first time', () => {
+  it('shows a loading skeleton while the dashboard is fetching for the first time', async () => {
     // All three API calls hang indefinitely — simulates in-flight initial load.
     mockGetConsultantUnitsSold.mockReturnValue(new Promise(() => {}))
     mockGetConsultantCommissionEarned.mockReturnValue(new Promise(() => {}))
     mockGetConsultantPendingPayouts.mockReturnValue(new Promise(() => {}))
 
-    render(<App />)
+    renderApp('/dashboard')
 
-    expect(
-      screen.getByRole('status', { name: 'Loading earnings dashboard' }),
-    ).toBeInTheDocument()
-    expect(screen.getByText('Loading earnings dashboard…')).toBeInTheDocument()
+    // PortalShell shows its own "Checking session…" state until the mocked
+    // getAuthSession() promise resolves — wait past it to the dashboard's
+    // own loading skeleton underneath.
+    expect(await screen.findByRole('status', { name: 'Loading dashboard' })).toBeInTheDocument()
     // Stats cards must not render during initial load.
-    expect(screen.queryByText('Units sold')).not.toBeInTheDocument()
-    expect(screen.queryByText('Gross sales')).not.toBeInTheDocument()
+    expect(screen.queryByText('Gross sales this month')).not.toBeInTheDocument()
+    // Regression guard: the detail panels must show their own loading state,
+    // not a premature "no orders/commissions" empty state, while the fetch
+    // that would tell them whether that's true is still pending.
+    expect(screen.queryByText('No orders yet this month')).not.toBeInTheDocument()
+    expect(screen.queryByText('No commission entries this month')).not.toBeInTheDocument()
+    expect(await screen.findByRole('status', { name: 'Loading recent orders' })).toBeInTheDocument()
+    expect(screen.getByRole('status', { name: 'Loading recent commission entries' })).toBeInTheDocument()
   })
 
   it('shows the empty state when a consultant has no sales in the period', async () => {
@@ -215,14 +248,23 @@ describe('consultant portal revenue engine', () => {
       entries: [],
     })
 
-    render(<App />)
+    renderApp('/dashboard')
 
-    expect(await screen.findByText('No sales in this period')).toBeInTheDocument()
-    expect(
-      screen.getByText(/Share your referral link to start attributing orders/),
-    ).toBeInTheDocument()
-    // Stats cards must not render in the empty state.
-    expect(screen.queryByText('Units sold')).not.toBeInTheDocument()
-    expect(screen.queryByText('Gross sales')).not.toBeInTheDocument()
+    // findByText retries/polls, so this genuinely waits for the load to
+    // finish (auth check, then the dashboard's own fetch) rather than
+    // asserting against whatever's on screen right now — a plain waitFor on
+    // the loading indicator's absence is not equivalent here, since that
+    // indicator doesn't exist at all until DashboardPage itself mounts past
+    // the "Checking session…" auth screen, which would make it resolve
+    // (falsely) immediately.
+    //
+    // The dashboard shows zero-value stat cards (not hidden) plus two
+    // section-level empty states, one per record list — only once loading
+    // has actually confirmed there are zero records, never before (see the
+    // "shows a loading skeleton" test above for the negative case).
+    expect(await screen.findByText('No orders yet this month')).toBeInTheDocument()
+    expect(screen.getByText('No commission entries this month')).toBeInTheDocument()
+    expect(screen.getByText('Gross sales this month')).toBeInTheDocument()
+    expect(screen.getAllByText('$0.00').length).toBeGreaterThan(0)
   })
 })

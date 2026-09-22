@@ -2,8 +2,12 @@
 
 import React from 'react'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { BrowserRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { initEnv } from '@gtg/config'
+import { resetEnvForTesting } from '@gtg/config/testing'
 import App from '../src/App'
+import { StorefrontSessionProvider } from '../src/contexts/StorefrontSessionContext'
 
 const { mockListProducts, mockVerifyHologramSerial, mockResolveConsultantCode, mockCreateOrder } = vi.hoisted(() => ({
   mockListProducts: vi.fn(),
@@ -18,9 +22,23 @@ vi.mock('@gtg/api', async () => {
   return {
     ...actual,
     listProducts: mockListProducts,
+    // StorefrontContext actually calls listProductsWithFallback(), which
+    // internally calls the real (unmocked) listProducts() — mocking the
+    // package-level export doesn't rewire that internal call. Mock this one
+    // directly too, or the app never sees our fixture data.
+    listProductsWithFallback: mockListProducts,
     verifyHologramSerial: mockVerifyHologramSerial,
     resolveConsultantCode: mockResolveConsultantCode,
     createOrder: mockCreateOrder,
+    // StorefrontSessionProvider (wraps the whole app) bootstraps a session on
+    // mount, which needs a real configureSupabase() call production only
+    // makes in main.tsx. Mocked here as an anonymous-guest session, same
+    // reason the calls above are mocked.
+    getAuthSession: vi.fn().mockResolvedValue(null),
+    ensureAnonymousSession: vi.fn().mockResolvedValue({
+      user: { id: 'anon-1', is_anonymous: true, app_metadata: {} },
+    }),
+    subscribeToAuthChanges: vi.fn(() => () => {}),
   }
 })
 
@@ -60,13 +78,47 @@ function installMatchMedia(matches: boolean) {
   vi.stubGlobal('matchMedia', vi.fn(() => mediaQuery))
 }
 
+// Production renders <App /> inside <StorefrontSessionProvider><BrowserRouter>
+// (see BootstrapScreens.tsx) — App itself provides neither, so tests must.
+// BrowserRouter specifically (not MemoryRouter) because some code — the
+// gift-flow's cart persistence aside, notably CheckoutPage and
+// captureReferralAttribution() — reads window.location.search directly
+// rather than through a router hook. MemoryRouter never touches
+// window.location, so navigate() calls would silently desync from what that
+// code actually reads; BrowserRouter keeps both in sync, matching production.
+function renderAtRoute(route: string) {
+  window.history.pushState({}, '', route)
+  return render(
+    <StorefrontSessionProvider>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </StorefrontSessionProvider>,
+  )
+}
+
 describe('product detail conversion flow', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // App → StorefrontProvider calls getEnv() on mount; nothing initializes
+    // the env singleton by default in tests (vitest.setup.ts intentionally
+    // doesn't, since production code calls initEnv(import.meta.env) once in
+    // main.tsx). See packages/config/src/testing.ts for this pattern.
+    resetEnvForTesting()
+    initEnv({
+      VITE_SUPABASE_URL: 'http://localhost:54321',
+      VITE_SUPABASE_ANON_KEY: 'test-anon-key',
+      VITE_STRIPE_PUBLISHABLE_KEY: 'pk_test_xxx',
+      VITE_APP_ENV: 'development',
+      VITE_LICENSE_CLC_ACTIVE: 'true',
+      VITE_LICENSE_ARMY_ACTIVE: 'true',
+      VITE_ROYALTY_RATE_CLC: '0.145',
+      VITE_HOLOGRAM_VERIFY_BASE_URL: 'http://localhost:9000/verify',
+      VITE_FRAUD_AUTHORITY_ROLES: 'super_admin,admin',
+    })
     installMatchMedia(false)
     Element.prototype.scrollIntoView = vi.fn()
     window.localStorage.clear()
-    window.location.hash = '#product/FLA-FTBL/florida-collector-football'
     mockListProducts.mockResolvedValue({
       products,
       total: 1,
@@ -95,49 +147,73 @@ describe('product detail conversion flow', () => {
     cleanup()
   })
 
-  it('loads the sku route and supports checkout and gift intent actions', async () => {
-    render(<App />)
+  it('loads the product route, adds to cart, and supports gift intent actions', async () => {
+    renderAtRoute('/product/FLA-FTBL/florida-collector-football')
 
     expect(
       await screen.findByRole('heading', { name: 'Florida Collector Football', level: 1 }),
     ).toBeInTheDocument()
     expect(document.querySelector('.product-detail-art')?.getAttribute('src')).toContain(
-      'https://gametimegift.com/assets/products/florida.png',
+      '/assets/products/florida.png',
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Select Gift' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add to Cart' }))
+    expect(await screen.findByText('Florida Collector Football added to cart.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'View Cart' })).toBeInTheDocument()
 
-    expect(await screen.findByRole('heading', { name: 'Secure Checkout' })).toBeInTheDocument()
-    expect(screen.getByLabelText('Full name')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Add Gift Details' }))
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Personalize as a Gift' }))
-
-    const recipientField = await screen.findByLabelText('Recipient')
-    fireEvent.change(recipientField, { target: { value: 'Dad' } })
+    fireEvent.change(screen.getByLabelText('Recipient'), { target: { value: 'Dad' } })
     fireEvent.change(screen.getByLabelText('Occasion'), { target: { value: "Father's Day" } })
     fireEvent.change(screen.getByLabelText('Gift note'), { target: { value: 'His office shelf needs this.' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save Gift Intent' }))
 
     expect(await screen.findByText('Florida Collector Football saved to the gift flow.')).toBeInTheDocument()
-    expect(screen.getByText('1 item saved')).toBeInTheDocument()
 
     const storedCart = JSON.parse(window.localStorage.getItem('gtg-storefront-cart-v1') ?? '[]')
-    expect(storedCart[0]?.giftDetails).toEqual({
+    const giftEntry = storedCart.find((entry: { intent: string }) => entry.intent === 'gift')
+    expect(giftEntry?.giftDetails).toEqual({
       recipient: 'Dad',
       occasion: "Father's Day",
       note: 'His office shelf needs this.',
     })
   })
 
-  it('still supports authenticity verification from the same conversion page', async () => {
-    render(<App />)
+  it('opens the bundle panel and navigates to checkout with the selected bundle', async () => {
+    renderAtRoute('/product/FLA-FTBL/florida-collector-football')
 
     await screen.findByRole('heading', { name: 'Florida Collector Football', level: 1 })
+
+    // First click reveals the purchase-options bundle panel (Buy Now is a
+    // two-step affordance: choose a bundle, then confirm). The scroll is
+    // deferred via requestAnimationFrame, so it isn't synchronous.
+    fireEvent.click(screen.getByRole('button', { name: 'Buy Now' }))
+    await waitFor(() => {
+      expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
+    })
+
+    fireEvent.click(screen.getByRole('radio', { name: /Vase \+ Flowers/i }))
+    fireEvent.click(screen.getByRole('radio', { name: /Roses \+ Carnations/i }))
+
+    // Second click (now labeled "Continue to Checkout") actually navigates.
+    fireEvent.click(screen.getByRole('button', { name: 'Continue to Checkout' }))
+
+    // Confirms real navigation to /checkout occurred, window.location synced
+    // correctly (BrowserRouter, not MemoryRouter — see renderAtRoute), and
+    // the checkout form actually rendered rather than a false-positive match
+    // on the always-present "Secure Checkout" step label.
+    expect(await screen.findByLabelText('Full name')).toBeInTheDocument()
+    expect(screen.queryByText('Product not found')).not.toBeInTheDocument()
+  })
+
+  it('verifies hologram authenticity from the dedicated authenticity page', async () => {
+    renderAtRoute('/authenticity')
 
     fireEvent.change(screen.getByLabelText('Hologram code'), {
       target: { value: 'GTG-HOLO-0001' },
     })
-    fireEvent.submit(screen.getByRole('button', { name: 'Verify' }).closest('form')!)
+    fireEvent.click(screen.getByRole('button', { name: 'Verify Authenticity' }))
 
     await waitFor(() => {
       expect(screen.getByText(/Result:/)).toBeInTheDocument()
@@ -146,33 +222,15 @@ describe('product detail conversion flow', () => {
     expect(mockVerifyHologramSerial).toHaveBeenCalledWith('GTG-HOLO-0001')
   })
 
-  it('scrolls to the product detail when the route changes to a sku hash', async () => {
-    render(<App />)
+  it('persists referral attribution and pre-fills the consultant code at checkout', async () => {
+    renderAtRoute('/checkout?sku=FLA-FTBL&ref=GTG-SELLER1')
 
-    await screen.findByRole('heading', { name: 'Florida Collector Football', level: 1 })
-
-    window.location.hash = '#product/FLA-FTBL/florida-collector-football'
-    window.dispatchEvent(new HashChangeEvent('hashchange'))
-
-    await waitFor(() => {
-      expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
-    })
-  })
-
-  it('persists referral attribution in localStorage and pre-fills checkout', async () => {
-    window.history.replaceState({}, '', '/?ref=GTG-SELLER1#product/FLA-FTBL/florida-collector-football')
-
-    render(<App />)
-
-    expect(await screen.findByText(/Shopping with/)).toBeInTheDocument()
+    expect(await screen.findByLabelText('Full name')).toBeInTheDocument()
     expect(window.localStorage.getItem('gtg-referral-attribution-v1')).toContain('GTG-SELLER1')
 
-    await screen.findByRole('heading', { name: 'Florida Collector Football', level: 1 })
-
-    fireEvent.click(screen.getAllByRole('button', { name: 'Select Gift' })[0]!)
-
-    const consultantField = await screen.findByLabelText(/Consultant code/i)
-    expect(consultantField).toHaveValue('GTG-SELLER1')
+    // A resolved referral code auto-opens the code disclosure and pre-fills
+    // it (see CheckoutPage's effect) — no manual toggle click needed.
+    expect(await screen.findByLabelText('Consultant code')).toHaveValue('GTG-SELLER1')
   })
 
   it('shows an out-of-stock notice and removes purchase actions when the product is unavailable', async () => {
@@ -183,85 +241,22 @@ describe('product detail conversion flow', () => {
       offset: 0,
     })
 
-    render(<App />)
+    renderAtRoute('/product/FLA-FTBL/florida-collector-football')
 
     await screen.findByRole('heading', { name: 'Florida Collector Football', level: 1 })
 
     // No purchase buttons — no false affordance.
-    expect(screen.queryByRole('button', { name: 'Select Gift' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Join Waitlist' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Personalize as a Gift' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Buy Now' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Add to Cart' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Add Gift Details' })).not.toBeInTheDocument()
 
     // Honest out-of-stock notice with a way back to the catalog.
     expect(screen.getByText(/out of stock/i)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Browse available gifts/i })).toBeInTheDocument()
   })
 
-  it('hides optional code fields behind a disclosure toggle and reveals them on click', async () => {
-    render(<App />)
-
-    await screen.findByRole('heading', { name: 'Florida Collector Football', level: 1 })
-    fireEvent.click(screen.getByRole('button', { name: 'Select Gift' }))
-    await screen.findByRole('heading', { name: 'Secure Checkout' })
-
-    // Fields hidden by default when there is no pre-filled referral code.
-    expect(screen.queryByLabelText('Consultant code')).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('Discount code')).not.toBeInTheDocument()
-
-    // Toggle opens the disclosure.
-    fireEvent.click(screen.getByRole('button', { name: /Have a consultant or discount code/i }))
-    expect(screen.getByLabelText('Consultant code')).toBeInTheDocument()
-    expect(screen.getByLabelText('Discount code')).toBeInTheDocument()
-
-    // Toggle collapses it again.
-    fireEvent.click(screen.getByRole('button', { name: /Have a consultant or discount code/i }))
-    expect(screen.queryByLabelText('Consultant code')).not.toBeInTheDocument()
-  })
-
-  it('shows inline validation errors on submit and clears them when the field is corrected', async () => {
-    render(<App />)
-
-    await screen.findByRole('heading', { name: 'Florida Collector Football', level: 1 })
-    fireEvent.click(screen.getByRole('button', { name: 'Select Gift' }))
-    await screen.findByRole('heading', { name: 'Secure Checkout' })
-
-    // Submit with empty name → validation error shown, no retry prompt.
-    fireEvent.click(screen.getByRole('button', { name: /Continue to Payment/i }))
-    expect(await screen.findByText('Please enter your name.')).toBeInTheDocument()
-    expect(screen.queryByText(/Fix the details above/i)).not.toBeInTheDocument()
-
-    // Typing in the name field clears the error.
-    fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Jane Smith' } })
-    expect(screen.queryByText('Please enter your name.')).not.toBeInTheDocument()
-
-    // Submit with missing email → different validation error, still no retry prompt.
-    fireEvent.click(screen.getByRole('button', { name: /Continue to Payment/i }))
-    expect(await screen.findByText('Please enter a valid email address.')).toBeInTheDocument()
-    expect(screen.queryByText(/Fix the details above/i)).not.toBeInTheDocument()
-
-    // Typing in the email field clears that error.
-    fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'jane@example.com' } })
-    expect(screen.queryByText('Please enter a valid email address.')).not.toBeInTheDocument()
-  })
-
-  it('shows an explicit retry prompt when the createOrder API call fails', async () => {
-    mockCreateOrder.mockRejectedValue(new Error('Network error'))
-
-    render(<App />)
-
-    await screen.findByRole('heading', { name: 'Florida Collector Football', level: 1 })
-    fireEvent.click(screen.getByRole('button', { name: 'Select Gift' }))
-    await screen.findByRole('heading', { name: 'Secure Checkout' })
-
-    fireEvent.change(screen.getByLabelText('Full name'), { target: { value: 'Jane Smith' } })
-    fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'jane@example.com' } })
-    fireEvent.click(screen.getByRole('button', { name: /Continue to Payment/i }))
-
-    // API error message + explicit retry prompt both appear.
-    expect(await screen.findByText(/Checkout could not be started/i)).toBeInTheDocument()
-    expect(screen.getByText(/Fix the details above/i)).toBeInTheDocument()
-
-    // Submit button is re-enabled so the customer can actually retry.
-    expect(screen.getByRole('button', { name: /Continue to Payment/i })).not.toBeDisabled()
-  })
+  // The disclosure toggle, inline validation, and createOrder-retry scenarios
+  // that used to live here now duplicate apps/storefront/__tests__/checkout-page.test.tsx
+  // exactly (same CheckoutPage component, same "Pay Securely" flow) — removed
+  // here rather than kept as a second, drifting copy of the same coverage.
 })
