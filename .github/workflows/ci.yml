@@ -49,5 +49,8 @@ jobs:
       - name: Config Contract Validation
         run: pnpm config:validate
 
+      - name: Release Contract Validation
+        run: pnpm release:validate
+
       - name: Edge Surface Inventory Generation
         run: pnpm surface:generate

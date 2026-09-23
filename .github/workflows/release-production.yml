@@ -1,0 +1,129 @@
+name: Release Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type RELEASE to run the controlled production deployment
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gametimegift-production
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: ${{ github.ref == 'refs/heads/main' && inputs.confirmation == 'RELEASE' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: production
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+      SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+      PRODUCTION_SITE_URL: ${{ vars.PRODUCTION_SITE_URL }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+    steps:
+      - name: Checkout the selected release commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.30.3
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Verify production configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            SUPABASE_ACCESS_TOKEN
+            SUPABASE_DB_PASSWORD
+            SUPABASE_ANON_KEY
+            SUPABASE_PROJECT_REF
+            SUPABASE_URL
+            PRODUCTION_SITE_URL
+            VERCEL_TOKEN
+            VERCEL_ORG_ID
+            VERCEL_PROJECT_ID
+          )
+          for name in "${required[@]}"; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error::$name is not configured for the production environment"
+              exit 1
+            fi
+          done
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Re-run the complete release gate
+        run: pnpm predeploy:check
+
+      - name: Link the production Supabase project
+        run: pnpm exec supabase link --project-ref "$SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
+
+      - name: Display local and production migration history
+        run: pnpm exec supabase migration list --linked --password "$SUPABASE_DB_PASSWORD"
+
+      - name: Dry-run database migrations
+        run: pnpm exec supabase db push --dry-run --linked --password "$SUPABASE_DB_PASSWORD"
+
+      - name: Apply database migrations
+        run: pnpm exec supabase db push --linked --password "$SUPABASE_DB_PASSWORD" --yes
+
+      - name: Deploy Supabase Edge Functions
+        run: pnpm exec supabase functions deploy --project-ref "$SUPABASE_PROJECT_REF" --use-api --jobs 4
+
+      - name: Stamp the exact release commit
+        run: pnpm release:metadata
+
+      - name: Pull production Vercel settings
+        run: pnpm dlx vercel@59.25.4 pull --yes --environment=production --token="$VERCEL_TOKEN" --cwd apps/storefront
+
+      - name: Build the production candidate
+        run: pnpm dlx vercel@59.25.4 build --prod --token="$VERCEL_TOKEN" --cwd apps/storefront
+
+      - name: Deploy without assigning production domains
+        id: candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          deployment_url="$(pnpm dlx vercel@59.25.4 deploy --prebuilt --prod --skip-domain --token="$VERCEL_TOKEN" --cwd apps/storefront)"
+          echo "url=$deployment_url" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke-test the exact candidate deployment
+        env:
+          GTG_SITE_URL: ${{ steps.candidate.outputs.url }}
+          GTG_SUPABASE_URL: ${{ env.SUPABASE_URL }}
+          GTG_SUPABASE_ANON_KEY: ${{ env.SUPABASE_ANON_KEY }}
+          GTG_EXPECTED_COMMIT: ${{ github.sha }}
+        run: pnpm release:smoke
+
+      - name: Promote the verified candidate to production
+        run: pnpm dlx vercel@59.25.4 promote "${{ steps.candidate.outputs.url }}" --yes --token="$VERCEL_TOKEN"
+
+      - name: Verify the production domain after promotion
+        env:
+          GTG_SITE_URL: ${{ env.PRODUCTION_SITE_URL }}
+          GTG_SUPABASE_URL: ${{ env.SUPABASE_URL }}
+          GTG_SUPABASE_ANON_KEY: ${{ env.SUPABASE_ANON_KEY }}
+          GTG_EXPECTED_COMMIT: ${{ github.sha }}
+        run: pnpm release:smoke
